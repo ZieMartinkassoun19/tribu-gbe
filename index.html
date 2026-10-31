@@ -679,7 +679,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     if(normPhone(d.phone).length<8)return err("Numéro de téléphone invalide.");
     if(age(d.birth)<5||age(d.birth)>99)return err("Date de naissance invalide.");
     if(!S.villages.some(v=>v.id===village))return err("Village invalide.");
-    const {data,error}=await sb.auth.signUp({email:d.email,password:d.password,options:{emailRedirectTo:window.location.origin,data:{full_name:d.name,birth_date:d.birth,school:d.school,class_name:d.classe,phone:d.phone,parent_phone:d.parent,address:d.address,parish_group:d.group,village_id:village,invite_code:d.code}}});
+    const {data,error}=await sb.auth.signUp({email:d.email,password:d.password,options:{emailRedirectTo:"https://ziemartinkassoun19.github.io/tribu-gbe/",data:{full_name:d.name,birth_date:d.birth,school:d.school,class_name:d.classe,phone:d.phone,parent_phone:d.parent,address:d.address,parish_group:d.group,village_id:village,invite_code:d.code}}});
     if(error){err(error.message);return;}
     if(data.session){await refreshAndRender();hist=[];go("home");toast("Compte créé et connecté.");}
     else {go("auth");toast("Compte créé. Consultez votre boîte e-mail pour confirmer l'adresse, puis connectez-vous.",6500);}
