@@ -140,6 +140,12 @@ body.dark .item{color:var(--tx)}
 .idc .cqr{position:absolute;left:12px;top:10px;width:76px;height:76px;background:#fff}
 .cqr canvas,.cqr img{width:100%!important;height:100%!important;display:block}
 .idc .ql{position:absolute;left:0;right:0;bottom:7px;font-size:11px;font-weight:700;color:#8c3a0a}
+
+/* Améliorations v2 */
+.tabs{display:flex;gap:8px;margin-bottom:12px}.tabs button{margin:0;padding:10px;font-size:.88rem}
+.kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}.kpi div{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:12px;text-align:center;box-shadow:0 2px 0 var(--bd)}.kpi b{display:block;font:700 1.7rem 'Barlow Condensed',sans-serif;color:var(--ac)}.kpi span{font-size:.75rem;color:var(--tx2);font-weight:600}
+.bar{display:flex;height:24px;border-radius:8px;overflow:hidden;margin-top:6px;background:var(--bg2)}.bar i{display:flex;align-items:center;justify-content:center;color:#fff;font:600 .72rem Inter;font-style:normal;min-width:0}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.75rem;color:var(--tx2)}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px}
 </style>
 </head>
 <body>
@@ -229,7 +235,7 @@ const V = {
   home() {
     const u = me();
     if (!u) return `<div class="hero"><h2>Bienvenue dans la Tribu Gbê</h2><p>L'application officielle de la Tribu Gbê.</p></div>
-      <div class="card"><h3>Accès à la plateforme</h3><p>Connectez-vous avec votre numéro de téléphone et votre mot de passe. Si vous n'avez pas encore de compte, utilisez le lien d'inscription depuis l'écran de connexion.</p><button data-act="go" data-t="auth">Se connecter</button></div>`;
+      <div class="card"><h3>Accès à la plateforme</h3><p>Connectez-vous avec votre adresse e-mail et votre mot de passe. Si vous n'avez pas encore de compte, utilisez le lien d'inscription depuis l'écran de connexion.</p><button data-act="go" data-t="auth">Se connecter</button></div>`;
     const next = upcoming().slice(0, 2);
     return `<div class="hero"><h2>Salut ${esc(displayName(u))} !</h2><p>Que Dieu te bénisse. ${rb(u)} ${vb(u)}</p></div>
       <div class="card"><h3>Prochaines activités</h3>${next.length ? next.map(annRow).join("") : "<p>Aucune activité planifiée.</p>"}<button class="sec" data-act="go" data-t="ann">Toutes les annonces</button></div>
@@ -335,9 +341,9 @@ const V = {
   about() {
     return `<h2>À propos</h2><div class="card"><h3>Bienvenue dans la Tribu Gbê</h3><p>Tribu Gbê est l'application de notre grande famille. Elle te permet de suivre les activités, d'échanger avec les autres et d'avoir ta carte de membre. Notre devise : Foi · Défi · Unité.</p>
       <h3 style="margin-top:12px">Comment ça marche</h3>
-      <p><strong>1. T'inscrire.</strong> Tu reçois un code d'invitation personnel. Il ne marche qu'une seule fois. Dans « Profil », touche « Créer un compte », puis touche la fleur de lys sur le chapeau : elle s'illumine et le formulaire apparaît. Remplis tes informations, choisis ton village, crée ton mot de passe (6 caractères minimum) et saisis ton code.</p>
+      <p><strong>1. T'inscrire.</strong> Tu reçois un code d'invitation personnel. Il ne marche qu'une seule fois. Dans « Profil », touche « Créer un compte », puis touche la fleur de lys sur le chapeau : elle s'illumine et le formulaire apparaît. Remplis tes informations, choisis ton village, crée ton mot de passe (5 caractères) et saisis ton code. Ensuite, tu arrives sur « Connexion » : entre ton adresse e-mail et ton mot de passe pour accéder à l'application.</p>
       <p><strong>2. Les cinq villages.</strong> GRANITE, ALBITES, AIGUILLES, QUARTZITES et AMPHIBOLITES. Tu choisis le tien à l'inscription : il apparaît sur ta carte avec le logo de la Tribu.</p>
-      <p><strong>3. Te connecter.</strong> Utilise ton numéro de téléphone et ton mot de passe.</p>
+      <p><strong>3. Te connecter.</strong> Utilise ton adresse e-mail et ton mot de passe. Si tu as oublié ton mot de passe, touche « Mot de passe oublié ».</p>
       <p><strong>4. Annonces.</strong> Retrouve les activités à venir (date, heure, lieu) et touche « Je serai présent » pour confirmer ta venue. Tu peux annuler à tout moment.</p>
       <p><strong>5. Communauté.</strong> Partage un message avec tout le monde et cherche un autre membre par son nom.</p>
       <p><strong>6. Ta carte de membre.</strong> Dans « Profil », ajoute ta photo. Tu peux aussi saisir jusqu'à deux liens (réseau social, page, etc.) : ils sont enregistrés dans le code QR, qui les ouvre quand on le scanne. Sans lien, le code QR reste vide. La carte porte aussi ton code-barres et ton ID. Touche « Télécharger ma carte » pour l'obtenir en image.</p>
@@ -562,7 +568,12 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
   });
   window.tribuSupabase = sb;
-  let realtimeChannel = null;
+  sb.auth.onAuthStateChange((event) => {
+    if (event === "PASSWORD_RECOVERY") { recovery = true; setTimeout(async () => { await refreshAndRender(); go("resetPw"); }, 0); return; }
+    if (event === "TOKEN_REFRESHED" || recovery) return;
+    setTimeout(() => refreshAndRender(), 0);
+  });
+  let realtimeChannel = null, managedSub = false, noticeShown = false, recovery = false, pendingEmail = "", resendAt = 0, authNotice = "";
   const dbError = (err, fallback) => {
     console.error("Supabase:", err);
     toast(err?.message || fallback || "Une erreur est survenue.", 5000);
@@ -580,7 +591,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     village:"", role:p.role || "cheminot", active:p.active !== false, surname:p.surname || "",
     by:p.inviter_id || null, idc:p.membership_code || p.user_id, photo:p.avatar_url || "",
     l1:p.qr_link_1 || "", l2:p.qr_link_2 || "", editAllowed:!!p.edit_allowed,
-    email:priv.email || ""
+    email:priv.email || "", gender:p.gender || "", decision:p.unit_decision || "", routierNotified:!!p.routier_notified_at
   });
   async function loadSharedData() {
     const user = await currentUser();
@@ -592,7 +603,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     if (announcementsRes.error) throw announcementsRes.error;
     S.villages = villagesRes.data.map(v => ({id:v.id,name:v.name,color:v.color}));
     S.ann = announcementsRes.data.map(a => ({id:a.id,title:a.title,date:a.event_date,time:a.event_time || "",lieu:a.location || "À définir",desc:a.description || "",att:[]}));
-    S.members = []; S.posts = []; S.codes = [];
+    S.members = []; S.posts = []; S.codes = []; S.managed = []; S.managedOk = false;
     if (user) {
       const [profilesRes, privateRes, rsvpRes, postsRes] = await Promise.all([
         sb.from("member_profiles").select("*").order("full_name"),
@@ -604,6 +615,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
       const privMap = new Map(privateRes.data.map(x => [x.user_id,x]));
       S.members = profilesRes.data.map(p => fromProfile(p,privMap.get(p.user_id) || {}));
       const byId = new Map(S.members.map(m => [m.id,m]));
+      if (profilesRes.data.length) S.hasGender = "gender" in profilesRes.data[0];
       for (const row of rsvpRes.data) {
         const a = S.ann.find(x => x.id === row.announcement_id);
         if (a) a.att.push(row.user_id);
@@ -619,36 +631,56 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
         if (staff()) {
           const codesRes = await sb.from("invite_codes").select("id,assigned_role,created_by,used_by,used_at,expires_at,created_at").order("created_at",{ascending:false});
           if (codesRes.error) throw codesRes.error;
-          S.codes = codesRes.data.map(c => ({id:c.id,code:"Code confidentiel (empreinte)",role:c.assigned_role,by:c.created_by,used:c.used_by,createdAt:new Date(c.created_at).getTime(),expiresAt:c.expires_at}));
+          const plainRes = await sb.from("invite_code_plain").select("code_id,code_plain");
+          const plainMap = new Map((plainRes.error ? [] : plainRes.data).map(x => [x.code_id,x.code_plain]));
+          S.codes = codesRes.data.map(c => ({id:c.id,code:"Code confidentiel (empreinte)",plain:plainMap.get(c.id) || "",role:c.assigned_role,by:c.created_by,used:c.used_by,createdAt:new Date(c.created_at).getTime(),expiresAt:c.expires_at}));
+          const mRes = await sb.from("managed_members").select("*").order("full_name");
+          if (!mRes.error) { S.managed = mRes.data.map(fromManaged); S.managedOk = true; } else console.warn("managed_members:", mRes.error.message);
         }
       }
     } else { S.cur = null; }
     return user;
   }
   async function refreshAndRender() {
-    try { await loadSharedData(); render(); }
+    try { await loadSharedData(); if (S.managedOk && !managedSub) { managedSub = true; subscribeRealtime(); } render(); checkRoutierNotice(); }
     catch (e) { dbError(e,"Impossible de synchroniser les données avec le serveur."); }
   }
   function subscribeRealtime() {
     if (realtimeChannel) sb.removeChannel(realtimeChannel);
-    realtimeChannel = sb.channel("tribu-gbe-live")
+    const ch = sb.channel("tribu-gbe-live")
       .on("postgres_changes",{event:"*",schema:"public",table:"announcements"},refreshAndRender)
       .on("postgres_changes",{event:"*",schema:"public",table:"announcement_rsvps"},refreshAndRender)
       .on("postgres_changes",{event:"*",schema:"public",table:"community_posts"},refreshAndRender)
       .on("postgres_changes",{event:"*",schema:"public",table:"member_profiles"},refreshAndRender)
       .on("postgres_changes",{event:"*",schema:"public",table:"villages"},refreshAndRender)
-      .subscribe();
+    ;
+    if (managedSub) ch.on("postgres_changes",{event:"*",schema:"public",table:"managed_members"},refreshAndRender);
+    realtimeChannel = ch.subscribe();
   }
 
-  V.auth = () => `<h2>Connexion</h2><div class="card"><label>Adresse e-mail</label><input id="lp" type="email" autocomplete="email" placeholder="nom@exemple.com"><label>Mot de passe</label><input id="lpin" type="password" autocomplete="current-password"><div class="err" id="err"></div><button data-act="login" style="margin:0">Se connecter</button><button class="link" data-act="go" data-t="reg">Créer un compte</button></div>`;
-  V.reg = () => `<div class="${regLit ? "lit" : ""}" id="stg"><div class="stage"><div class="halo"></div><svg class="hat" viewBox="0 0 200 120"><ellipse cx="100" cy="88" rx="96" ry="22" fill="#7a5a30"/><path d="M52 84Q54 26 100 22Q146 26 148 84Z" fill="#a07c4a"/><path d="M52 74Q100 90 148 74L148 84Q100 100 52 84Z" fill="#3a2a14"/></svg><svg class="fl" data-act="lit" role="button" aria-label="Fleur de lys" viewBox="0 0 100 140">${FL}</svg></div><p class="hint">Touchez la fleur de lys pour commencer</p></div>
-    <div id="regf" class="${regLit ? "on" : ""}"><h2>Inscription</h2><div class="card">
+  /* ===== Améliorations : inscription, connexion, mot de passe ===== */
+  const SITE_URL = "https://ziemartinkassoun19.github.io/tribu-gbe/";
+  const PIN_LEN = 5, toPw = pin => pin + "#Gbe2026";
+  const authTabs = on => `<div class="tabs"><button class="${on === "auth" ? "" : "sec"}" data-act="go" data-t="auth">Connexion</button><button class="${on === "reg" ? "" : "sec"}" data-act="go" data-t="reg">Inscription</button></div>`;
+  PARENT.regDone = "profile"; PARENT.forgot = "profile"; PARENT.resetPw = "profile";
+
+  V.auth = () => authTabs("auth") + `<h2>Connexion</h2>${authNotice ? `<div class="card" style="border-color:var(--ac)"><p style="color:var(--tx)"><strong>✅ ${authNotice}</strong></p></div>` : ""}<div class="card"><p>J'ai déjà un compte.</p><label>Adresse e-mail</label><input id="lp" type="email" autocomplete="email" placeholder="nom@exemple.com" value="${esc(pendingEmail)}"><label>Mot de passe</label><input id="lpin" type="password" autocomplete="current-password"><div class="err" id="err"></div><div id="resendBox"></div><button data-act="login" style="margin:0">Se connecter</button><button class="link" data-act="go" data-t="forgot">Mot de passe oublié ?</button></div><div class="card"><p>Pas encore de compte ? Il te faut un code d'invitation remis par ton Responsable.</p><button class="sec" data-act="go" data-t="reg" style="margin:0">Je m'inscris</button></div>`;
+
+  V.reg = () => authTabs("reg") + `<div class="${regLit ? "lit" : ""}" id="stg"><div class="stage"><div class="halo"></div><svg class="hat" viewBox="0 0 200 120"><ellipse cx="100" cy="88" rx="96" ry="22" fill="#7a5a30"/><path d="M52 84Q54 26 100 22Q146 26 148 84Z" fill="#a07c4a"/><path d="M52 74Q100 90 148 74L148 84Q100 100 52 84Z" fill="#3a2a14"/></svg><svg class="fl" data-act="lit" role="button" aria-label="Fleur de lys" viewBox="0 0 100 140">${FL}</svg></div><p class="hint">Touchez la fleur de lys pour commencer</p></div>
+    <div id="regf" class="${regLit ? "on" : ""}"><h2>Inscription</h2><div class="card"><p>Cette page sert à créer un <strong>nouveau compte</strong>. Tu en as déjà un ? <button class="link" data-act="go" data-t="auth">Va sur « Connexion »</button></p>
     <label>Nom complet *</label><input id="r_name"><label>Adresse e-mail *</label><input id="r_email" type="email" autocomplete="email">
+    <label>Sexe *</label><select id="r_gender"><option value="">— Choisir —</option><option value="M">Garçon</option><option value="F">Fille</option></select>
     <label>Date de naissance *</label><input id="r_birth" type="date" max="${today()}"><label>École *</label><input id="r_school"><label>Classe *</label><input id="r_classe">
     <label>Téléphone * (avec indicatif, ex. 225…)</label><input id="r_phone" type="tel"><label>Contact d'un parent *</label><input id="r_parent" type="tel"><label>Quartier *</label><input id="r_addr">
     <label>Paroisse / Groupe</label><input id="r_group" placeholder="Votre paroisse ou groupe scout"><label>Village *</label><select id="r_vil"><option value="">— Choisir votre village —</option>${S.villages.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join("")}</select>
-    <label>Mot de passe * (8 caractères minimum)</label><input id="r_pin" type="password" autocomplete="new-password"><label>Confirmer le mot de passe *</label><input id="r_pin2" type="password" autocomplete="new-password"><label>Code d'invitation remis par le Responsable *</label><input id="r_code" autocapitalize="characters">
+    <label>Mot de passe * (${PIN_LEN} caractères)</label><input id="r_pin" type="password" maxlength="${PIN_LEN}" autocomplete="new-password"><label>Confirmer le mot de passe *</label><input id="r_pin2" type="password" maxlength="${PIN_LEN}" autocomplete="new-password"><label>Code d'invitation remis par le Responsable *</label><input id="r_code" autocapitalize="characters">
     <div class="err" id="err"></div><button data-act="register" style="margin:0">Créer mon compte</button>${backBtn()}</div></div>`;
+
+  V.regDone = () => `<div class="card" style="text-align:center"><div style="font-size:2.6rem">📧</div><h2>Inscription réussie !</h2><p style="color:var(--tx);font-weight:600">Vérifiez votre e-mail.</p><p>Un lien de confirmation a été envoyé à <strong>${esc(pendingEmail)}</strong>. Cliquez dessus pour activer votre compte, puis revenez vous connecter.</p><p>Rien reçu ? Regardez dans les courriers indésirables (spam).</p><div class="err" id="err"></div><button data-act="resend">Renvoyer le lien de confirmation</button><button class="sec" data-act="go" data-t="auth">J'ai confirmé : me connecter</button></div>`;
+
+  V.forgot = () => authTabs("auth") + `<h2>Mot de passe oublié</h2><div class="card"><p>Saisissez l'adresse e-mail de votre compte. Nous vous envoyons un lien pour choisir un nouveau mot de passe de ${PIN_LEN} caractères.</p><label>Adresse e-mail</label><input id="fp_email" type="email" autocomplete="email" value="${esc(pendingEmail)}"><div class="err" id="err"></div><button data-act="sendReset" style="margin:0">Envoyer le lien</button>${backBtn()}</div>`;
+
+  V.resetPw = () => `<h2>Nouveau mot de passe</h2><div class="card"><p>Choisissez un mot de passe de ${PIN_LEN} caractères.</p><label>Nouveau mot de passe</label><input id="np1" type="password" maxlength="${PIN_LEN}" autocomplete="new-password"><label>Confirmer</label><input id="np2" type="password" maxlength="${PIN_LEN}" autocomplete="new-password"><div class="err" id="err"></div><button data-act="savePw" style="margin:0">Enregistrer</button></div>`;
 
   V.comm = () => {
     const u=me();
@@ -657,32 +689,204 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
   };
   V.members = () => `<h2>Cheminots</h2><input placeholder="🔍 Rechercher…" oninput="filterMembers(this.value)"><div class="card" id="ml">${memberList("")}</div>${backBtn()}`;
   V.resp = () => {const l=S.members.filter(m=>m.role==="responsable");return `<h2>Responsables (${l.length})</h2><div class="card">${l.map(m=>`<div class="item row" data-act="go" data-t="member" data-p="${m.id}"><span>${esc(displayName(m))} ${m.active?"":'<span class="badge">bloqué</span>'}</span>›</div>`).join("")||"<p>Aucun Responsable.</p>"}</div><button data-act="newCode" data-r="responsable">+ Générer un code Responsable</button>${backBtn()}`;};
-  V.member = () => {const m=S.members.find(x=>x.id===P);if(!m)return V.members();return `<div class="card"><h2>${esc(displayName(m))}</h2><p>🎂 ${m.birth?fmtDate(m.birth):"-"}</p><p>🏫 ${esc(m.school)} · ${esc(m.classe)}</p><p>📞 ${esc(m.phone)}</p><p>👪 ${esc(m.parent)}</p><p>📍 ${esc(m.address)}</p><p>${rb(m)} ${vb(m)} <span class="badge">${m.active?"actif":"bloqué"}</span></p>${m.by?`<p>Invité par : <strong>${esc(nm(m.by))}</strong></p>`:""}<button data-act="editMember" data-p="${m.id}">Modifier les informations</button>${staff()&&m.role==="cheminot"&&!m.editAllowed?`<button class="sec" data-act="allowEdit" data-p="${m.id}">Autoriser la modification du profil</button>`:""}${isS()&&m.role!=="safouin"?`<button class="sec" data-act="setRole" data-p="${m.id}" data-r="${m.role==="cheminot"?"responsable":"cheminot"}">${m.role==="cheminot"?"Promouvoir Responsable":"Rétrograder Cheminot"}</button>`:""}${isS()&&m.role!=="safouin"?`<button class="${m.active?"dg":"sec"}" data-act="toggleMember" data-p="${m.id}">${m.active?"Bloquer":"Débloquer"} le compte</button>`:""}${backBtn()}</div>`;};
+  V.member = () => {const m=S.members.find(x=>x.id===P);if(!m)return V.members();return `<div class="card"><h2>${esc(displayName(m))}</h2><p>🎂 ${m.birth?fmtDate(m.birth):"-"}</p><p>🏫 ${esc(m.school)} · ${esc(m.classe)}</p><p>📞 ${esc(m.phone)}</p><p>👪 ${esc(m.parent)}</p><p>📍 ${esc(m.address)}</p>${genderLine(m)}<p>${rb(m)} ${unitBadge(m)} ${vb(m)} <span class="badge">${m.active?"actif":"bloqué"}</span></p>${m.by?`<p>Invité par : <strong>${esc(nm(m.by))}</strong></p>`:""}${staff()&&needsConfirm(m)?confirmBtns(m):""}<button data-act="editMember" data-p="${m.id}">Modifier les informations</button>${staff()&&m.role==="cheminot"&&!m.editAllowed?`<button class="sec" data-act="allowEdit" data-p="${m.id}">Autoriser la modification du profil</button>`:""}${isS()&&m.role!=="safouin"?`<button class="sec" data-act="setRole" data-p="${m.id}" data-r="${m.role==="cheminot"?"responsable":"cheminot"}">${m.role==="cheminot"?"Promouvoir Responsable":"Rétrograder Cheminot"}</button>`:""}${isS()&&m.role!=="safouin"?`<button class="${m.active?"dg":"sec"}" data-act="toggleMember" data-p="${m.id}">${m.active?"Bloquer":"Débloquer"} le compte</button>`:""}${backBtn()}</div>`;};
   V.villages = () => `<h2>Villages de la Tribu Gbê</h2><div class="card">${S.villages.map(v=>`<div class="item row" style="cursor:default"><span><i style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${v.color};margin-right:8px"></i>${esc(v.name)}</span><small>${S.members.filter(m=>m.vil===v.id&&m.active).length} membre(s)</small></div>`).join("")}</div>${isS()?`<div class="card"><label>Nom du village</label><input id="vn"><label>Couleur</label><input id="vc" type="color" value="#64748b"><button data-act="newVillage">Ajouter un village</button></div>`:""}${backBtn()}`;
-  V.codes = () => {const l=S.codes.filter(c=>isS()||c.by===S.cur);return `<h2>Codes d'invitation</h2><div class="card"><p>Les codes sont stockés sous forme d'empreinte sécurisée. Le code en clair n'est visible qu'une seule fois à sa création.</p>${l.map(c=>`<div class="item"><strong>${esc(c.role)}</strong><p>${c.used?"Utilisé":"Disponible"} · créé le ${new Date(c.createdAt).toLocaleDateString("fr-FR")}</p></div>`).join("")||"<p>Aucun code enregistré.</p>"}<button data-act="newCode" data-r="cheminot">+ Générer un code Cheminot</button>${isS()?`<button class="sec" data-act="newCode" data-r="responsable">+ Générer un code Responsable</button>`:""}</div>${backBtn()}`;};
+  /* ===== Unités (Cheminot / Routier), jeunes sans compte, statistiques, codes ===== */
+  const GRACE_DAYS = 3;
+  const d18 = b => { const d = new Date(b + "T00:00"); d.setFullYear(d.getFullYear() + 18); return d; };
+  const unitOf = m => {
+    if (m.role !== "cheminot") return m.role;
+    if (!m.birth) return "cheminot";
+    const a = age(m.birth);
+    if (a < 15) return "jeune";
+    if (a < 18 || m.decision === "cheminot") return "cheminot";
+    return "routier";
+  };
+  const needsConfirm = m => m.role === "cheminot" && !!m.birth && age(m.birth) >= 18 && !m.decision && (Date.now() - d18(m.birth).getTime()) >= GRACE_DAYS * 864e5;
+  const unitBadge = m => { const u = m.role === "cheminot" ? unitOf(m) : ""; return u ? `<span class="badge">${{jeune:"Moins de 15 ans",cheminot:"Unité Cheminot",routier:"Routier"}[u]}</span>` : ""; };
+  const genderLine = m => `<p>${m.gender === "F" ? "👧 Fille" : m.gender === "M" ? "👦 Garçon" : "❔ Sexe non précisé"}</p>`;
+  const fromManaged = r => ({id:r.id,name:r.full_name,birth:r.birth_date || "",gender:r.gender || "",school:r.school || "",classe:r.class_name || "",phone:r.phone || "",parent:r.parent_phone || "",address:r.address || "",group:r.parish_group || "",vil:r.village_id || "",role:"cheminot",active:true,by:r.created_by,decision:r.unit_decision || "",managed:true});
+  const myManaged = () => (S.managed || []).filter(m => isS() || m.by === S.cur);
+  const confirmBtns = m => `<div class="grid" style="margin-top:8px"><button data-act="confirmUnit" data-p="${m.id}" data-k="${m.managed ? "g" : "m"}" data-v="cheminot">Reste Cheminot</button><button class="sec" data-act="confirmUnit" data-p="${m.id}" data-k="${m.managed ? "g" : "m"}" data-v="routier">Passe Routier</button></div>`;
 
+  /* Formulaire modal avec liste déroulante (le formulaire d'origine reste inchangé) */
+  function form2(title, fields, ok) {
+    $("#modal").innerHTML = `<div class="box"><h3>${esc(title)}</h3>${fields.map(f => `<label>${esc(f.l)}</label>` + (f.t === "select" ? `<select id="f_${f.k}">${f.o.map(([v, l]) => `<option value="${esc(v)}"${String(f.v ?? "") === String(v) ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>` : `<input id="f_${f.k}" type="${f.t || "text"}" value="${esc(f.v)}">`)).join("")}<button data-act="mOk">Valider</button><button class="sec" data-act="mNo">Annuler</button></div>`;
+    $("#modal").style.display = "flex";
+    let busy = false;
+    modalOk = async () => {
+      if (busy) return; busy = true;
+      const o = {}; fields.forEach(f => o[f.k] = $("#f_" + f.k).value.trim());
+      const r = await ok(o); busy = false;
+      if (r !== false) { $("#modal").style.display = "none"; render(); }
+    };
+  }
+  const GENDER_OPTS = [["", "— Choisir —"], ["M", "Garçon"], ["F", "Fille"]];
+
+  function managedForm(m) {
+    if (!staff()) return toast("Action réservée aux responsables.");
+    if (!S.managedOk) return toast("Fonction indisponible : exécutez d'abord le script SQL fourni (table managed_members).", 6000);
+    form2(m ? "Modifier le jeune" : "Ajouter un jeune sans compte", [
+      {k:"name",l:"Nom et prénoms *",v:m?.name},{k:"gender",l:"Sexe *",t:"select",o:GENDER_OPTS,v:m?.gender},{k:"birth",l:"Date de naissance *",t:"date",v:m?.birth},
+      {k:"vil",l:"Village *",t:"select",o:[["", "— Choisir —"], ...S.villages.map(v => [v.id, v.name])],v:m?.vil},
+      {k:"school",l:"École",v:m?.school},{k:"classe",l:"Classe",v:m?.classe},{k:"phone",l:"Téléphone (facultatif)",t:"tel",v:m?.phone},{k:"parent",l:"Contact d'un parent",t:"tel",v:m?.parent},{k:"address",l:"Quartier",v:m?.address},{k:"group",l:"Paroisse / Groupe",v:m?.group}
+    ], async o => {
+      if (!o.name || !o.birth || !o.vil || !["M", "F"].includes(o.gender)) { toast("Nom, sexe, date de naissance et village sont obligatoires."); return false; }
+      if (!(age(o.birth) >= 5 && age(o.birth) <= 99)) { toast("Date de naissance invalide."); return false; }
+      const row = {full_name:o.name,gender:o.gender,birth_date:o.birth,village_id:o.vil,school:o.school || null,class_name:o.classe || null,phone:o.phone || null,parent_phone:o.parent || null,address:o.address || null,parish_group:o.group || null};
+      let res;
+      if (m) res = await sb.from("managed_members").update(row).eq("id", m.id);
+      else { const user = await currentUser(); res = await sb.from("managed_members").insert({...row, created_by:user.id}); }
+      if (res.error) { dbError(res.error, "Enregistrement impossible."); return false; }
+      await refreshAndRender(); toast(m ? "Informations mises à jour." : "Jeune enregistré. Il est compté dans les statistiques.");
+    });
+  }
+
+  V.managedDetail = () => {
+    const m = (S.managed || []).find(x => x.id === P); if (!m) return V.members();
+    const own = isS() || m.by === S.cur;
+    return `<div class="card"><h2>${esc(m.name)}</h2><p>Jeune sans compte</p>${genderLine(m)}<p>🎂 ${m.birth ? fmtDate(m.birth) + " (" + age(m.birth) + " ans)" : "-"}</p><p>🏫 ${esc(m.school)} · ${esc(m.classe)}</p><p>📞 ${esc(m.phone || "-")}</p><p>👪 ${esc(m.parent || "-")}</p><p>📍 ${esc(m.address)}</p><p>${unitBadge(m)} ${vb(m)}</p><p>Ajouté par : <strong>${esc(nm(m.by))}</strong></p>
+      ${own && needsConfirm(m) ? confirmBtns(m) : ""}${own ? `<button data-act="editManaged" data-p="${m.id}">Modifier les informations</button><button class="dg" data-act="delManaged" data-p="${m.id}">Supprimer</button>` : ""}${backBtn()}</div>`;
+  };
+
+  const membersV1 = V.members;
+  V.members = () => {
+    let h = membersV1(); const l = myManaged();
+    const extra = `<div class="card"><h3>Jeunes sans compte (${l.length})</h3><p>Jeunes sans téléphone, enregistrés par un responsable pour les statistiques.</p>${l.map(m => `<div class="item row" data-act="go" data-t="managedDetail" data-p="${m.id}"><span>${esc(m.name)} ${vb(m)}</span>›</div>`).join("") || ""}<button data-act="addManaged">+ Ajouter un jeune sans compte</button></div>`;
+    const i = h.lastIndexOf('<button class="sec" data-act="back">');
+    return i < 0 ? h + extra : h.slice(0, i) + extra + h.slice(i);
+  };
+
+  const profileV1 = V.profile;
+  V.profile = () => { const h = profileV1(), u = me(); return u && u.role === "cheminot" ? h.replace("<p>🏘️", `<p>${unitBadge(u)}</p><p>🏘️`) : h; };
+
+  const homeV1 = V.home;
+  V.home = () => {
+    let h = homeV1();
+    if (!staff()) return h;
+    h = h.replace('<button data-act="newAnn">Annonce</button>', '<button data-act="newAnn">Annonce</button><button data-act="go" data-t="stats">📊 Statistiques</button><button data-act="addManaged">+ Jeune sans compte</button>');
+    const todo = [...S.members.filter(m => m.role === "cheminot" && m.active && (isS() || m.by === S.cur)), ...myManaged()].filter(needsConfirm);
+    if (todo.length) {
+      const card = `<div class="card" style="border-color:var(--ac)"><h3>🎖️ À confirmer (${todo.length})</h3><p>Ces jeunes ont 18 ans révolus depuis plus de ${GRACE_DAYS} jours. Restent-ils dans l'unité Cheminot ? Sinon ils sont comptés comme Routiers.</p>${todo.map(m => `<div class="item" style="cursor:default"><strong>${esc(m.name)}</strong> <small>${age(m.birth)} ans</small>${confirmBtns(m)}</div>`).join("")}</div>`;
+      const mk = '<div class="card"><button class="sec" style="margin:0" data-act="contact">';
+      h = h.includes(mk) ? h.replace(mk, card + mk) : h + card;
+    }
+    return h;
+  };
+
+  /* Statistiques */
+  const GC = {M:"#2563eb",F:"#db2777",N:"#9ca3af"};
+  function statsData() {
+    const tally = () => ({M:0,F:0,N:0,t:0}), add = (o, m) => { o[m.gender === "M" || m.gender === "F" ? m.gender : "N"]++; o.t++; };
+    const r = {cheminot:tally(),routier:tally(),jeune:tally(),responsable:tally(),safouin:tally(),byVil:{}};
+    S.villages.forEach(v => r.byVil[v.id] = {cheminot:tally(),routier:tally(),jeune:tally()});
+    [...S.members.filter(m => m.active), ...(S.managed || [])].forEach(m => { const u = unitOf(m); add(r[u], m); const b = r.byVil[m.vil]; if (b && b[u]) add(b[u], m); });
+    return r;
+  }
+  const gl = o => `👦 ${o.M} · 👧 ${o.F}${o.N ? ` · ❔ ${o.N}` : ""}`;
+  const bar = (o, max) => o.t ? `<div class="bar" style="width:${Math.max(8, Math.round(o.t / max * 100))}%">${["M", "F", "N"].map(k => o[k] ? `<i style="flex:${o[k]};background:${GC[k]}">${o[k]}</i>` : "").join("")}</div>` : `<small>—</small>`;
+  V.stats = () => {
+    if (!staff()) return V.home();
+    const st = statsData(), max = Math.max(1, ...S.villages.map(v => st.byVil[v.id].cheminot.t)), unknown = st.cheminot.N + st.routier.N + st.jeune.N;
+    return `<h2>Statistiques</h2>
+      <div class="kpi"><div><b>${st.cheminot.t}</b><span>Cheminots</span></div><div><b>${st.safouin.t}</b><span>Safouin</span></div><div><b>${st.responsable.t}</b><span>Responsables</span></div><div><b>${st.routier.t}</b><span>Routiers</span></div></div>
+      <div class="card"><h3>Cheminots : garçons et filles</h3><p>${gl(st.cheminot)}</p>${bar(st.cheminot, st.cheminot.t || 1)}${st.jeune.t ? `<p>Moins de 15 ans : ${st.jeune.t} (${gl(st.jeune)})</p>` : ""}${st.routier.t ? `<p>Routiers : ${st.routier.t} (${gl(st.routier)})</p>` : ""}</div>
+      <div class="card"><h3>Cheminots par village</h3>${S.villages.map(v => { const b = st.byVil[v.id]; return `<div style="margin-bottom:12px"><div class="row"><span><i style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${v.color};margin-right:6px"></i><strong>${esc(v.name)}</strong></span><strong>${b.cheminot.t}</strong></div><small style="color:var(--tx2)">${gl(b.cheminot)}${b.routier.t ? ` · Routiers : ${b.routier.t}` : ""}${b.jeune.t ? ` · −15 ans : ${b.jeune.t}` : ""}</small>${bar(b.cheminot, max)}</div>`; }).join("")}
+      <div class="legend"><span><i style="background:${GC.M}"></i>Garçons</span><span><i style="background:${GC.F}"></i>Filles</span><span><i style="background:${GC.N}"></i>Non précisé</span></div></div>
+      <p>Les chiffres comprennent les jeunes avec compte et les jeunes enregistrés sans compte.</p>
+      ${unknown ? `<p>❔ ${unknown} personne(s) sans sexe renseigné : complétez-le via « Modifier les informations ».</p>` : ""}${S.hasGender === false ? `<p style="color:var(--dg)">Colonne « sexe » absente : exécutez le script SQL fourni.</p>` : ""}${backBtn()}`;
+  };
+
+  /* Codes d'invitation : masqués, affichés à la demande */
+  let codesOpen = false; const shown = new Set();
+  V.codes = () => {
+    const l = S.codes.filter(c => isS() || c.by === S.cur), free = l.filter(c => !c.used), used = l.filter(c => c.used);
+    const sm = 'style="width:auto;margin:0;padding:7px 10px"';
+    return `<h2>Codes d'invitation</h2><div class="card"><p>Les codes sont cachés par défaut. Ouvrez la liste, puis touchez 👁 pour afficher un code, ou « Copier » pour le transmettre.</p>
+      <button class="sec" data-act="toggleCodes">🔐 Codes disponibles (${free.length}) ${codesOpen ? "▴" : "▾"}</button>
+      ${codesOpen ? `<div id="codesList">${free.map(c => `<div class="item" style="cursor:default"><div class="row"><span class="code">${c.plain ? (shown.has(c.id) ? esc(c.plain) : "GB-••••••••••") : "Code non récupérable"}</span>${c.plain ? `<span style="display:flex;gap:6px"><button class="sec" ${sm} data-act="revealCode" data-i="${c.id}">${shown.has(c.id) ? "🙈" : "👁"}</button><button ${sm} data-act="copyCode" data-i="${c.id}">Copier</button></span>` : ""}</div><p>${c.role === "responsable" ? "Responsable" : "Cheminot"} · créé le ${new Date(c.createdAt).toLocaleDateString("fr-FR")} · par ${esc(nm(c.by))}</p></div>`).join("") || "<p>Aucun code disponible.</p>"}
+      ${used.length ? `<h3 style="margin-top:10px">Déjà utilisés (${used.length})</h3>${used.map(c => `<div class="item" style="cursor:default"><p>${c.role === "responsable" ? "Responsable" : "Cheminot"} · utilisé par ${esc(nm(c.used))} · créé le ${new Date(c.createdAt).toLocaleDateString("fr-FR")}</p></div>`).join("")}` : ""}</div>` : ""}
+      <button data-act="newCode" data-r="cheminot">+ Générer un code Membre</button>${isS() ? `<button class="sec" data-act="newCode" data-r="responsable">+ Générer un code Responsable</button>` : ""}</div>${backBtn()}`;
+  };
+
+  /* Menu : raccourcis responsables */
+  const openMenuV1 = openMenu;
+  openMenu = function () {
+    openMenuV1();
+    if (staff()) { const dp = $("#dp"), t = dp.querySelector('[data-t="trace"]'); if (t) t.insertAdjacentHTML("beforebegin", `<button class="mi sec" style="--i:6" data-act="go" data-t="stats">📊 Statistiques</button><button class="mi sec" style="--i:7" data-act="addManaged">➕ Jeune sans compte</button>`); }
+  };
+
+  /* Message de passage à l'unité Routier (18 ans révolus) */
+  function checkRoutierNotice() {
+    const m = me(); if (!m || m.role !== "cheminot" || unitOf(m) !== "routier" || m.routierNotified || noticeShown) return;
+    const key = "gbe_routier_" + m.id; try { if (localStorage.getItem(key)) return; } catch (e) {}
+    noticeShown = true;
+    $("#modal").innerHTML = `<div class="box"><h3>🎖️ Tu as maintenant 18 ans !</h3><p>Tu passes dans l'unité <strong>Routier</strong>. Tu gardes l'accès à toutes les interfaces de l'application.</p><p>Dans ${GRACE_DAYS} jours, ton Responsable confirmera si tu restes dans l'unité Cheminot.</p><button data-act="ackRoutier">J'ai compris</button></div>`;
+    $("#modal").style.display = "flex";
+  }
+
+  const showUnconfirmed = () => {
+    $("#err").textContent = "Votre adresse e-mail n'est pas encore confirmée. Ouvrez l'e-mail reçu à l'inscription et cliquez sur le lien.";
+    const b = $("#resendBox"); if (b) b.innerHTML = `<button class="sec" data-act="resend">Renvoyer le lien de confirmation</button>`;
+  };
   A.login = async () => {
-    const email=$("#lp").value.trim().toLowerCase(), password=$("#lpin").value;
-    if(!email||!password){$("#err").textContent="Saisissez votre adresse e-mail et votre mot de passe.";return;}
-    const {error}=await sb.auth.signInWithPassword({email,password});
-    if(error){$("#err").textContent=error.message;return;}
-    await refreshAndRender(); hist=[];go("home");chime();voice();
+    const email=$("#lp").value.trim().toLowerCase(), pin=$("#lpin").value; pendingEmail=email;
+    if(!email||!pin){$("#err").textContent="Saisissez votre adresse e-mail et votre mot de passe.";return;}
+    let {error}=await sb.auth.signInWithPassword({email,password:toPw(pin)});
+    if(error&&/invalid login/i.test(error.message)&&pin.length>PIN_LEN){ error=(await sb.auth.signInWithPassword({email,password:pin})).error; }
+    if(error){
+      if(/not confirmed/i.test(error.message)) return showUnconfirmed();
+      $("#err").textContent=/invalid login/i.test(error.message)?"E-mail ou mot de passe incorrect. Si vous venez de vous inscrire, confirmez d'abord votre e-mail. Pas encore de compte ? Utilisez « Inscription ».":error.message;
+      return;
+    }
+    recovery=false; authNotice=""; await refreshAndRender();
+    if(!me()){ const e=$("#err"); if(e)e.textContent="Compte introuvable ou bloqué. Contactez votre Responsable."; return; }
+    hist=[];go("home");chime();voice();
   };
   A.register = async () => {
     const g=id=>$("#r_"+id)?.value.trim()||"";
-    const d={name:g("name"),email:g("email").toLowerCase(),birth:g("birth"),school:g("school"),classe:g("classe"),phone:g("phone"),parent:g("parent"),address:g("addr"),group:g("group"),password:g("pin"),password2:g("pin2"),code:g("code").toUpperCase().replace(/\s+/g,"")}, village=g("vil");
+    const d={name:g("name"),email:g("email").toLowerCase(),gender:g("gender"),birth:g("birth"),school:g("school"),classe:g("classe"),phone:g("phone"),parent:g("parent"),address:g("addr"),group:g("group"),password:g("pin"),password2:g("pin2"),code:g("code").toUpperCase().replace(/\s+/g,"")}, village=g("vil");
     const err=t=>{$("#err").textContent=t;};
     if(Object.entries(d).some(([k,v])=>k!=="password2"&&!v)||!village)return err("Merci de remplir tous les champs obligatoires.");
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email))return err("Adresse e-mail invalide.");
-    if(d.password.length<8)return err("Le mot de passe doit contenir au moins 8 caractères.");
+    if(!["M","F"].includes(d.gender))return err("Indiquez si vous êtes un garçon ou une fille.");
+    if(d.password.length!==PIN_LEN)return err(`Le mot de passe doit contenir exactement ${PIN_LEN} caractères.`);
     if(d.password!==d.password2)return err("Les deux mots de passe ne correspondent pas.");
     if(normPhone(d.phone).length<8)return err("Numéro de téléphone invalide.");
     if(age(d.birth)<5||age(d.birth)>99)return err("Date de naissance invalide.");
     if(!S.villages.some(v=>v.id===village))return err("Village invalide.");
-    const {data,error}=await sb.auth.signUp({email:d.email,password:d.password,options:{emailRedirectTo:"https://ziemartinkassoun19.github.io/tribu-gbe/",data:{full_name:d.name,birth_date:d.birth,school:d.school,class_name:d.classe,phone:d.phone,parent_phone:d.parent,address:d.address,parish_group:d.group,village_id:village,invite_code:d.code}}});
-    if(error){err(error.message);return;}
-    if(data.session){await refreshAndRender();hist=[];go("home");toast("Compte créé et connecté.");}
-    else {go("auth");toast("Compte créé. Consultez votre boîte e-mail pour confirmer l'adresse, puis connectez-vous.",6500);}
+    const {data,error}=await sb.auth.signUp({email:d.email,password:toPw(d.password),options:{emailRedirectTo:SITE_URL,data:{full_name:d.name,gender:d.gender,birth_date:d.birth,school:d.school,class_name:d.classe,phone:d.phone,parent_phone:d.parent,address:d.address,parish_group:d.group,village_id:village,invite_code:d.code}}});
+    if(error){err(/already registered/i.test(error.message)?"Cette adresse e-mail a déjà un compte. Allez dans « Connexion » (ou « Mot de passe oublié »).":error.message);return;}
+    pendingEmail=d.email;
+    if(data.user&&Array.isArray(data.user.identities)&&data.user.identities.length===0)return err("Cette adresse e-mail a déjà un compte. Allez dans « Connexion » (ou « Mot de passe oublié »).");
+    if(data.session){
+      await sb.auth.signOut(); S.cur=null; S.members=[]; S.posts=[]; S.codes=[]; S.managed=[];
+      authNotice="Inscription réussie ! Connectez-vous maintenant avec votre adresse e-mail et votre mot de passe.";
+      hist=[]; go("auth"); toast("Inscription réussie. Connectez-vous.",5000);
+    } else { resendAt=Date.now(); hist=[]; go("regDone"); toast("Inscription réussie, vérifiez votre e-mail.",6500); }
+  };
+  A.resend = async () => {
+    if(!pendingEmail){go("auth");return toast("Saisissez d'abord votre adresse e-mail.");}
+    const wait=Math.ceil((resendAt+60000-Date.now())/1000);
+    if(wait>0)return toast(`Patientez ${wait} s avant de renvoyer le lien.`);
+    const {error}=await sb.auth.resend({type:"signup",email:pendingEmail,options:{emailRedirectTo:SITE_URL}});
+    if(error)return toast(/rate|seconds|too many/i.test(error.message)?"Trop de demandes. Réessayez dans quelques minutes.":error.message,5000);
+    resendAt=Date.now(); toast("Lien de confirmation renvoyé. Vérifiez aussi vos spams.",5000);
+  };
+  A.sendReset = async () => {
+    const email=$("#fp_email").value.trim().toLowerCase(); pendingEmail=email;
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){$("#err").textContent="Saisissez une adresse e-mail valide.";return;}
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:SITE_URL});
+    if(error){$("#err").textContent=/rate|seconds|too many/i.test(error.message)?"Trop de demandes. Réessayez dans quelques minutes.":error.message;return;}
+    $("#err").style.color="var(--ac)"; $("#err").textContent="Si un compte existe avec cette adresse, un e-mail avec le lien vient d'être envoyé.";
+  };
+  A.savePw = async () => {
+    const p1=$("#np1").value,p2=$("#np2").value,err=t=>{$("#err").textContent=t;};
+    if(p1.length!==PIN_LEN)return err(`Le mot de passe doit contenir exactement ${PIN_LEN} caractères.`);
+    if(p1!==p2)return err("Les deux mots de passe ne correspondent pas.");
+    const {error}=await sb.auth.updateUser({password:toPw(p1)});
+    if(error)return err(/different from the old/i.test(error.message)?"Choisissez un mot de passe différent de l'ancien.":error.message);
+    recovery=false; await refreshAndRender(); hist=[]; go("home"); toast("Mot de passe modifié. Vous êtes connecté.",5000);
   };
   A.logout = async () => {const {error}=await sb.auth.signOut();if(error)return dbError(error);S.cur=null;S.members=[];S.posts=[];hist=[];await refreshAndRender();go("home");};
   A.newCode = async d => {
@@ -690,11 +894,35 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     const code="GB-"+Array.from({length:10},()=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[crypto.getRandomValues(new Uint8Array(1))[0]%32]).join("");
     const role=d.r==="responsable"&&isS()?"responsable":"cheminot";
     const user=await currentUser();
-    const {error}=await sb.from("invite_codes").insert({code_hash:await sha256(code),assigned_role:role,created_by:user.id});
+    const {data:ins,error}=await sb.from("invite_codes").insert({code_hash:await sha256(code),assigned_role:role,created_by:user.id}).select("id").single();
     if(error)return dbError(error,"Impossible de créer le code.");
+    let kept=false;
+    if(ins?.id){ const r=await sb.from("invite_code_plain").insert({code_id:ins.id,code_plain:code}); kept=!r.error; }
     await refreshAndRender();
-    $("#modal").innerHTML=`<div class="box"><h3>Code d'invitation créé</h3><p>Copiez-le maintenant et transmettez-le à la personne invitée. Il ne sera plus affiché après fermeture.</p><input id="newc" readonly value="${code}" style="font-family:ui-monospace,monospace;font-size:1.4rem;text-align:center;letter-spacing:.12em;margin-top:8px"><button data-act="copyNew">📋 Copier le code</button><button class="sec" data-act="mNo">Fermer</button></div>`;$("#modal").style.display="flex";
+    $("#modal").innerHTML=`<div class="box"><h3>Code d'invitation créé</h3><p>${kept?"Copiez-le et transmettez-le à la personne invitée. Vous pourrez le retrouver, masqué, dans la rubrique Codes.":"Copiez-le maintenant et transmettez-le à la personne invitée. Il ne sera plus affiché après fermeture."}</p><input id="newc" readonly value="${code}" style="font-family:ui-monospace,monospace;font-size:1.4rem;text-align:center;letter-spacing:.12em;margin-top:8px"><button data-act="copyNew">📋 Copier le code</button><button class="sec" data-act="mNo">Fermer</button></div>`;$("#modal").style.display="flex";
   };
+  A.toggleCodes = () => { codesOpen=!codesOpen; if(!codesOpen)shown.clear(); render(); };
+  A.revealCode = d => { shown.has(d.i)?shown.delete(d.i):shown.add(d.i); render(); };
+  A.copyCode = async d => { const c=S.codes.find(x=>x.id===d.i); if(!c?.plain)return toast("Ce code n'est plus récupérable."); toast((await copyText(c.plain))?"Code copié. Vous pouvez le transmettre.":"Copie impossible : affichez le code puis copiez-le à la main."); };
+  A.addManaged = () => managedForm(null);
+  A.editManaged = d => managedForm((S.managed||[]).find(m=>m.id===d.p));
+  A.delManaged = async d => {
+    const m=(S.managed||[]).find(x=>x.id===d.p); if(!m)return;
+    if(!confirm("Supprimer ce jeune ? Il ne sera plus compté dans les statistiques."))return;
+    const {error}=await sb.from("managed_members").delete().eq("id",m.id); if(error)return dbError(error);
+    await refreshAndRender(); hist.pop(); go("members",null,true); toast("Jeune supprimé.");
+  };
+  A.confirmUnit = async d => {
+    if(!staff())return toast("Action réservée aux responsables.");
+    const {error}=await sb.rpc("tribu_decide_unit",{p_user:d.k==="m"?d.p:null,p_managed:d.k==="g"?d.p:null,p_decision:d.v});
+    if(error)return dbError(error,"Impossible d'enregistrer la décision.");
+    await refreshAndRender(); toast(d.v==="cheminot"?"Il reste dans l'unité Cheminot.":"Il passe dans l'unité Routier.");
+  };
+  A.ackRoutier = async () => {
+    const m=me(); $("#modal").style.display="none";
+    if(m){ try{localStorage.setItem("gbe_routier_"+m.id,"1");}catch(e){} const {error}=await sb.rpc("tribu_ack_routier"); if(error)console.warn("tribu_ack_routier:",error.message); }
+  };
+
   A.newAnn = () => {if(!staff())return toast("Action réservée aux responsables.");form("Nouvelle annonce",[{k:"title",l:"Titre *"},{k:"date",l:"Date *",t:"date",v:today()},{k:"time",l:"Heure",t:"time",v:"18:00"},{k:"lieu",l:"Lieu"},{k:"desc",l:"Description",t:"area"}],async o=>{if(!o.title||!o.date){toast("Titre et date obligatoires.");return false;}const user=await currentUser();const {error}=await sb.from("announcements").insert({title:o.title,event_date:o.date,event_time:o.time||null,location:o.lieu||"À définir",description:o.desc||"",created_by:user.id});if(error)dbError(error);else{await refreshAndRender();toast("Annonce publiée pour tous les utilisateurs.");}});};
   A.delAnn = async d => {if(!isS()&&!staff())return toast("Action réservée.");if(!confirm("Supprimer cette annonce ?"))return;const {error}=await sb.from("announcements").delete().eq("id",d.p);if(error)return dbError(error);await refreshAndRender();go("ann");};
   A.rsvp = async d => {const user=await currentUser();if(!user)return toast("Connectez-vous pour confirmer.");const a=S.ann.find(x=>x.id===d.p);if(!a)return;const exists=a.att.includes(user.id);const q=exists?sb.from("announcement_rsvps").delete().eq("announcement_id",a.id).eq("user_id",user.id):sb.from("announcement_rsvps").insert({announcement_id:a.id,user_id:user.id});const {error}=await q;if(error)return dbError(error);await refreshAndRender();render();};
@@ -711,9 +939,13 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     if(!m)return;
     if(m.id===S.cur&&m.role==="cheminot"&&!m.editAllowed)return toast("Demandez à votre Responsable d'autoriser la modification du profil.");
     if(m.id!==S.cur&&!staff())return toast("Action réservée aux responsables.");
-    form("Modifier les informations",[{k:"name",l:"Nom et prénoms",v:m.name},{k:"birth",l:"Date de naissance",v:m.birth,t:"date"},{k:"school",l:"École",v:m.school},{k:"classe",l:"Classe",v:m.classe},{k:"phone",l:"Téléphone",v:m.phone,t:"tel"},{k:"parent",l:"Contact parent",v:m.parent,t:"tel"},{k:"address",l:"Quartier",v:m.address},{k:"group",l:"Paroisse / Groupe",v:m.group}],async o=>{
-      if(Object.values(o).some(v=>!v)){toast("Aucun champ ne peut être vide.");return false;}
-      const {error:e1}=await sb.from("member_profiles").update({full_name:o.name,birth_date:o.birth,school:o.school,class_name:o.classe,address:o.address,parish_group:o.group}).eq("user_id",m.id);
+    const fields=[{k:"name",l:"Nom et prénoms",v:m.name},{k:"birth",l:"Date de naissance",v:m.birth,t:"date"},{k:"school",l:"École",v:m.school},{k:"classe",l:"Classe",v:m.classe},{k:"phone",l:"Téléphone",v:m.phone,t:"tel"},{k:"parent",l:"Contact parent",v:m.parent,t:"tel"},{k:"address",l:"Quartier",v:m.address},{k:"group",l:"Paroisse / Groupe",v:m.group}];
+    if(S.hasGender)fields.splice(1,0,{k:"gender",l:"Sexe",t:"select",o:[["","— Non précisé —"],["M","Garçon"],["F","Fille"]],v:m.gender});
+    form2("Modifier les informations",fields,async o=>{
+      if(Object.entries(o).some(([k,v])=>k!=="gender"&&!v)){toast("Aucun champ ne peut être vide.");return false;}
+      const upd={full_name:o.name,birth_date:o.birth,school:o.school,class_name:o.classe,address:o.address,parish_group:o.group};
+      if(S.hasGender)upd.gender=o.gender||null;
+      const {error:e1}=await sb.from("member_profiles").update(upd).eq("user_id",m.id);
       if(e1){dbError(e1);return false;}
       const {error:e2}=await sb.from("member_private").update({phone:o.phone,parent_phone:o.parent,neighborhood:o.address}).eq("user_id",m.id);
       if(e2){dbError(e2);return false;}
@@ -737,8 +969,12 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
 
   await refreshAndRender();
   subscribeRealtime();
-  sb.auth.onAuthStateChange((_event,_session)=>{setTimeout(()=>refreshAndRender(),0);});
-  if(me())voice();
+  const urlInfo = location.hash + location.search;
+  if (recovery || /type=recovery/.test(urlInfo)) { recovery = true; go("resetPw"); }
+  else if (/error_code=otp_expired|error=access_denied/.test(urlInfo)) { go("auth"); toast("Ce lien a expiré ou a déjà été utilisé. Connectez-vous : si votre e-mail n'est pas confirmé, vous pourrez renvoyer le lien ; sinon utilisez « Mot de passe oublié ».", 9000); }
+  else if (/type=signup|type=email/.test(urlInfo) && me()) toast("Adresse e-mail confirmée. Bienvenue !", 5000);
+  if (urlInfo) history.replaceState(null, "", location.pathname);
+  if(me()&&!recovery)voice();
   console.info("TRIBU GBÊ : Supabase connecté, synchronisation temps réel active.");
 })().catch(err=>{console.error("Initialisation Supabase impossible",err);toast("Connexion au serveur impossible. Vérifiez votre connexion Internet.",6000);});
 
