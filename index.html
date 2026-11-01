@@ -353,7 +353,7 @@ const V = {
   },
   trace() {
     const l = isS() ? S.members.filter(m => m.role !== "cheminot") : [me()];
-    return `<h2>Traçabilité</h2>${l.map(r => { const cs = S.codes.filter(c => c.by === r.id), inv = S.members.filter(m => m.by === r.id);
+    return `<h2>Traçabilité</h2><button class="sec" data-act="go" data-t="stats">📊 Voir les statistiques</button>${l.map(r => { const cs = S.codes.filter(c => c.by === r.id), inv = S.members.filter(m => m.by === r.id);
       return `<div class="card"><div class="row"><strong>${esc(r.name)}</strong>${rb(r)}</div><p>Codes générés : <strong>${cs.length}</strong> (utilisés : ${cs.filter(c => c.used).length})</p>${inv.length ? inv.map(m => `<p>• ${esc(m.name)} ${vb(m)}</p>`).join("") : "<p>Aucun inscrit grâce à lui.</p>"}</div>`; }).join("")}${backBtn()}`;
   },
   write() {
@@ -807,10 +807,23 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
   /* Statistiques */
   const GC = {M:"#2563eb",F:"#db2777",N:"#9ca3af"};
   function statsData() {
-    const tally = () => ({M:0,F:0,N:0,t:0}), add = (o, m) => { o[m.gender === "M" || m.gender === "F" ? m.gender : "N"]++; o.t++; };
-    const r = {cheminot:tally(),routier:tally(),jeune:tally(),responsable:tally(),safouin:tally(),byVil:{}};
+    const tally = () => ({M:0,F:0,N:0,t:0});
+    const add = (o, m) => { if (!o) return; o[m.gender === "M" || m.gender === "F" ? m.gender : "N"]++; o.t++; };
+    const r = {
+      cheminot:tally(), routier:tally(), jeune:tally(),
+      founder:tally(), safhouin:tally(), safouin:tally(), byVil:{}
+    };
     S.villages.forEach(v => r.byVil[v.id] = {cheminot:tally(),routier:tally(),jeune:tally()});
-    [...S.members.filter(m => m.active), ...(S.managed || [])].forEach(m => { const u = unitOf(m); add(r[u], m); const b = r.byVil[m.vil]; if (b && b[u]) add(b[u], m); });
+    [...S.members.filter(m => m.active), ...(S.managed || [])].forEach(m => {
+      if (m.role === "founder") { add(r.founder, m); return; }
+      if (m.role === "safhouin") { add(r.safhouin, m); return; }
+      if (m.role === "safouin") { add(r.safouin, m); return; }
+      const u = unitOf(m);
+      if (!r[u]) return;
+      add(r[u], m);
+      const b = r.byVil[m.vil];
+      if (b && b[u]) add(b[u], m);
+    });
     return r;
   }
   const gl = o => `👦 ${o.M} · 👧 ${o.F}${o.N ? ` · ❔ ${o.N}` : ""}`;
@@ -819,7 +832,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     if (!staff()) return V.home();
     const st = statsData(), max = Math.max(1, ...S.villages.map(v => st.byVil[v.id].cheminot.t)), unknown = st.cheminot.N + st.routier.N + st.jeune.N;
     return `<h2>Statistiques</h2>
-      <div class="kpi"><div><b>${st.cheminot.t}</b><span>Cheminots</span></div><div><b>${st.safouin.t}</b><span>Fondateur</span></div><div><b>${st.responsable.t}</b><span>Safouins</span></div><div><b>${st.routier.t}</b><span>Routiers</span></div></div>
+      <div class="kpi"><div><b>${st.cheminot.t}</b><span>Cheminots</span></div><div><b>${st.founder.t}</b><span>Fondateur</span></div><div><b>${st.safhouin.t + st.safouin.t}</b><span>Safouins</span></div><div><b>${st.routier.t}</b><span>Routiers</span></div></div>
       <div class="card"><h3>Cheminots : garçons et filles</h3><p>${gl(st.cheminot)}</p>${bar(st.cheminot, st.cheminot.t || 1)}${st.jeune.t ? `<p>Moins de 15 ans : ${st.jeune.t} (${gl(st.jeune)})</p>` : ""}${st.routier.t ? `<p>Routiers : ${st.routier.t} (${gl(st.routier)})</p>` : ""}</div>
       <div class="card"><h3>Cheminots par village</h3>${S.villages.map(v => { const b = st.byVil[v.id]; return `<div style="margin-bottom:12px"><div class="row"><span><i style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${v.color};margin-right:6px"></i><strong>${esc(v.name)}</strong></span><strong>${b.cheminot.t}</strong></div><small style="color:var(--tx2)">${gl(b.cheminot)}${b.routier.t ? ` · Routiers : ${b.routier.t}` : ""}${b.jeune.t ? ` · −15 ans : ${b.jeune.t}` : ""}</small>${bar(b.cheminot, max)}</div>`; }).join("")}
       <div class="legend"><span><i style="background:${GC.M}"></i>Garçons</span><span><i style="background:${GC.F}"></i>Filles</span><span><i style="background:${GC.N}"></i>Non précisé</span></div></div>
