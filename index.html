@@ -146,6 +146,26 @@ body.dark .item{color:var(--tx)}
 .kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}.kpi div{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:12px;text-align:center;box-shadow:0 2px 0 var(--bd)}.kpi b{display:block;font:700 1.7rem 'Barlow Condensed',sans-serif;color:var(--ac)}.kpi span{font-size:.75rem;color:var(--tx2);font-weight:600}
 .bar{display:flex;height:24px;border-radius:8px;overflow:hidden;margin-top:6px;background:var(--bg2)}.bar i{display:flex;align-items:center;justify-content:center;color:#fff;font:600 .72rem Inter;font-style:normal;min-width:0}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.75rem;color:var(--tx2)}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px}
+
+/* Slogan */
+#slg{position:absolute;inset:0;z-index:45;background:#000b;display:flex;align-items:center;justify-content:center;padding:14px;animation:slgIn .3s both}
+@keyframes slgIn{from{opacity:0}to{opacity:1}}
+#slg .sw{width:100%;max-height:100%;overflow-y:auto;border-radius:22px;perspective:900px;-webkit-overflow-scrolling:touch}
+#slg .sc{transition:transform .28s ease;border-radius:22px;position:relative}
+#slg .sc.fl{transform:rotateY(90deg)}
+#slg .fr{background:linear-gradient(135deg,#c2410c,#7c2d12);color:#fff;padding:34px 20px 26px;text-align:center;box-shadow:0 8px 18px #ea580c55;cursor:pointer;border-radius:22px;animation:slgPop .6s both}
+@keyframes slgPop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+#slg .fr .sl{font:700 1.55rem/1.3 'Barlow Condensed',sans-serif;letter-spacing:.04em;margin:8px 0 16px}
+#slg .fr .th{font-size:.8rem;opacity:.9;animation:slgPulse 1.6s infinite}
+@keyframes slgPulse{50%{opacity:.4}}
+#slg .bk2{background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:22px;padding:18px 16px 16px;box-shadow:0 8px 18px #0004}
+#slg .bk2 h3{font:700 1.25rem 'Barlow Condensed',sans-serif;color:var(--ac);letter-spacing:.03em;margin:12px 0 6px}
+#slg .bk2 h3:first-child{margin-top:0}
+#slg .bk2 p{color:var(--tx);margin:6px 0}
+#slg .od{display:flex;gap:8px;align-items:flex-start;margin:7px 0;padding:8px;border-radius:12px;background:var(--bg2);font-size:.85rem;color:var(--tx)}
+#slg .od b{flex:none;min-width:58px;text-align:center;color:#fff;border-radius:8px;padding:3px 4px;font-size:.7rem}
+#slg .cur::after{content:"▍";color:var(--ac);animation:slgPulse .7s infinite}
+#slg .x{position:sticky;top:0;float:right;width:34px!important;height:34px;padding:0!important;margin:0 0 0 6px!important;border-radius:50%!important;z-index:2;font-size:.9rem}
 </style>
 </head>
 <body>
@@ -171,7 +191,7 @@ const LOGO = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUEBAQEAwU
 document.querySelectorAll("img[data-l]").forEach(i => i.src = LOGO);
 document.head.insertAdjacentHTML("beforeend", `<link rel="icon" href="${LOGO}"><link rel="apple-touch-icon" href="${LOGO}">`);
 const VOICE = ["Bienvenue Tribu Gbê ! Reste fidèle !", "Cheminot aujourd'hui, leader demain !", "Que Dieu bénisse notre unité !", "Honorons notre devise : Foi, Courage, Unité !"];
-const RL = { safouin: "Responsable général", responsable: "Responsable", cheminot: "Cheminot" };
+const RL = { founder: "Safhouin fondateur", safhouin: "Safhouin adjoint", safouin: "Safouin", cheminot: "Cheminot" };
 
 /* ===== Utilitaires ===== */
 const $ = s => document.querySelector(s);
@@ -208,12 +228,22 @@ function norm(){
 norm();
 const save = () => { try { localStorage.setItem("cg_gbe", JSON.stringify({doc:S.doc,trash:S.trash,voice:S.voice})); } catch (e) { toast("Enregistrement impossible (stockage plein ou bloqué)."); } };
 const me = () => S.members.find(m => m.id === S.cur && m.active) || null;
-const isS = () => me()?.role === "safouin";
-const staff = () => ["safouin", "responsable"].includes(me()?.role);
+const isFounder = () => me()?.role === "founder";
+const isSafhouin = () => me()?.role === "safhouin";
+const isSafouin = () => me()?.role === "safouin";
+const isStaff = () => ["founder", "safhouin", "safouin"].includes(me()?.role);
+const isS = () => isFounder() || isSafhouin();
+const staff = () => isStaff();
+const canEditMember = m => isFounder() || (isSafhouin() && m.role !== "founder") || (isSafouin() && m.vil === me()?.vil && m.role === "cheminot");
+const canSeePhone = m => isFounder() || isSafhouin() || (isSafouin() && m.vil === me()?.vil) || me()?.id === m.id;
+const canPromote = m => m.role === "cheminot" && m.active && (isFounder() || isSafhouin() || (isSafouin() && m.vil === me()?.vil));
+const canDemote = m => m.role === "safouin" && (isFounder() || isSafhouin() || (isSafouin() && m.vil === me()?.vil));
+const canDeleteMember = m => (isFounder() || isSafhouin()) && m.role !== "founder" && m.id !== me()?.id;
+const canBlockMember = m => m.role !== "founder" && m.id !== me()?.id && (isFounder() || (isSafhouin() && m.role !== "safhouin") || (isSafouin() && m.vil === me()?.vil && m.role === "cheminot"));
 const active = () => S.members.filter(m => m.active);
 const vil = id => S.villages.find(v => v.id === id);
 const nm = id => { const m=S.members.find(x=>x.id===id); return m ? displayName(m) : "?"; };
-const displayName = m => m.role === "responsable" ? "Chef " + (m.surname || m.name.trim().split(/\s+/)[0]) : m.name;
+const displayName = m => m.role === "safouin" ? "Chef " + (m.surname || m.name.trim().split(/\s+/)[0]) : m.name;
 const vb = m => { const v = vil(m.vil); return v ? `<span class="badge" style="background:${v.color};color:#fff;border-color:${v.color}">${esc(v.name)}</span>` : ""; };
 const rb = m => `<span class="badge">${RL[m.role]}</span>`;
 
@@ -239,8 +269,8 @@ const V = {
     const next = upcoming().slice(0, 2);
     return `<div class="hero"><h2>Salut ${esc(displayName(u))} !</h2><p>Que Dieu te bénisse. ${rb(u)} ${vb(u)}</p></div>
       <div class="card"><h3>Prochaines activités</h3>${next.length ? next.map(annRow).join("") : "<p>Aucune activité planifiée.</p>"}<button class="sec" data-act="go" data-t="ann">Toutes les annonces</button></div>
-      ${staff() ? `<div class="card" style="background:var(--bg2)"><h3>${isS() ? "👑 Zone Responsable général" : "🧭 Zone Responsable"}</h3><div class="grid">
-        <button data-act="go" data-t="members">Cheminots</button>${isS() ? `<button data-act="go" data-t="resp">Responsables</button>` : ""}
+      ${staff() ? `<div class="card" style="background:var(--bg2)"><h3>${isS() ? "👑 Zone Safhouin fondateur" : "🧭 Zone Safouin"}</h3><div class="grid">
+        <button data-act="go" data-t="members">Cheminots</button>${isS() ? `<button data-act="go" data-t="resp">Safouins</button>` : ""}
         <button data-act="go" data-t="villages">Villages</button><button data-act="go" data-t="codes">Codes</button>
         <button data-act="go" data-t="trace">Traçabilité</button><button data-act="go" data-t="write">Rédaction</button>
         <button data-act="go" data-t="exp">Exports</button><button data-act="newAnn">Annonce</button></div></div>` : ""}
@@ -293,24 +323,24 @@ const V = {
       <label>École *</label><input id="r_school"><label>Classe *</label><input id="r_classe"><label>Téléphone * (avec indicatif, ex. 225…)</label><input id="r_phone" type="tel"><label>Contact d'un parent *</label><input id="r_parent" type="tel">
       <label>Quartier *</label><input id="r_addr"><label>Paroisse / Groupe</label><input id="r_group" placeholder="Votre paroisse ou groupe scout"><label>Village (génération) *</label><select id="r_vil"><option value="">— Choisir votre village —</option>${S.villages.map(v => `<option value="${v.id}">${esc(v.name)}</option>`).join("")}</select>
       <label>Mot de passe *</label><input id="r_pin" type="password" autocomplete="new-password">
-      <label>Code d'accès remis par le Responsable *</label><input id="r_code" autocapitalize="characters">
+      <label>Code d'accès remis par le Safouin *</label><input id="r_code" autocapitalize="characters">
       <div class="err" id="err"></div><button data-act="register" style="margin:0">Créer mon compte</button>${backBtn()}</div></div>`;
   },
   members() {
     return `<h2>Cheminots</h2><input placeholder="🔍 Rechercher…" oninput="filterMembers(this.value)"><div class="card" id="ml">${memberList("")}</div>${backBtn()}`;
   },
   resp() {
-    const l = S.members.filter(m => m.role === "responsable");
-    return `<h2>Responsables (${l.length})</h2><div class="card">${l.map(m => `<div class="item row" data-act="go" data-t="member" data-p="${m.id}"><span>${esc(displayName(m))} ${m.active ? "" : '<span class="badge">bloqué</span>'}</span>›</div>`).join("") || "<p>Aucun Responsable. Générez un code Responsable et remettez-le à la personne.</p>"}</div>
-      <button data-act="newCode" data-r="responsable">+ Générer un code Responsable</button>${backBtn()}`;
+    const l = S.members.filter(m => m.role === "safouin");
+    return `<h2>Safouins (${l.length})</h2><div class="card">${l.map(m => `<div class="item row" data-act="go" data-t="member" data-p="${m.id}"><span>${esc(displayName(m))} ${m.active ? "" : '<span class="badge">bloqué</span>'}</span>›</div>`).join("") || "<p>Aucun Safouin. Générez un code Safouin et remettez-le à la personne.</p>"}</div>
+      <button data-act="newCode" data-r="safouin">+ Générer un code Safouin</button>${backBtn()}`;
   },
   member() {
     const m = S.members.find(x => x.id === P); if (!m) return V.members();
     return `<div class="card"><h2>${esc(displayName(m))}</h2><p>🎂 ${fmtDate(m.birth)} (${age(m.birth)} ans)</p><p>🏫 ${esc(m.school)}</p><p>📞 ${esc(m.phone)}</p><p>👪 ${esc(m.parent)}</p><p>📍 ${esc(m.address)}</p>
       <p>${rb(m)} ${vb(m)} <span class="badge">${m.active ? "actif" : "bloqué"}</span></p>${m.by ? `<p>Invité par : <strong>${esc(nm(m.by))}</strong></p>` : ""}
       <button data-act="editMember" data-p="${m.id}">Modifier les informations</button>${staff() && m.role === "cheminot" && !m.editAllowed ? `<button class="sec" data-act="allowEdit" data-p="${m.id}">Autoriser la modification du profil</button>` : ""}
-      ${isS() && m.role !== "safouin" ? `<button class="sec" data-act="setRole" data-p="${m.id}" data-r="${m.role === "cheminot" ? "responsable" : "cheminot"}">${m.role === "cheminot" ? "Promouvoir Responsable" : "Rétrograder Cheminot"}</button>` : ""}
-      ${m.role !== "safouin" ? `<button class="${m.active ? "dg" : "sec"}" data-act="toggleMember" data-p="${m.id}">${m.active ? "Bloquer" : "Débloquer"} le compte</button>` : ""}${backBtn()}</div>`;
+      ${isS() && m.role !== "founder" ? `<button class="sec" data-act="setRole" data-p="${m.id}" data-r="${m.role === "cheminot" ? "safouin" : "cheminot"}">${m.role === "cheminot" ? "Promouvoir Safouin" : "Rétrograder Cheminot"}</button>` : ""}
+      ${m.role !== "founder" ? `<button class="${m.active ? "dg" : "sec"}" data-act="toggleMember" data-p="${m.id}">${m.active ? "Bloquer" : "Débloquer"} le compte</button>` : ""}${backBtn()}</div>`;
   },
   villages() {
     return `<h2>Les 5 villages de la Tribu Gbê</h2><div class="card">${S.villages.map(v => `<div class="item row" style="cursor:default"><span><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${v.color};vertical-align:middle;margin-right:8px"></span>${esc(v.name)}</span><small>${active().filter(m => m.vil === v.id).length} membre(s)</small></div>`).join("")}</div><p>Chaque membre choisit son village au moment de son inscription.</p>${backBtn()}`;
@@ -318,8 +348,8 @@ const V = {
   codes() {
     const l = S.codes.filter(c => isS() || c.by === S.cur);
     return `<h2>Codes et mots de passe générés</h2><div class="card"><p>Les codes restent masqués jusqu'à l'ouverture de cette rubrique. Utilisez « Copier » pour les transmettre à la personne concernée.</p>
-      <button class="sec" data-act="toggleCodes">🔐 Afficher / masquer les codes générés (${l.length})</button><div id="codesList" hidden>${l.map(c => `<div class="item" style="cursor:default"><div class="row"><span class="code">${esc(c.code)}</span><button style="width:auto;margin:0;padding:7px 10px" data-act="copyCode" data-code="${esc(c.code)}">Copier</button></div><p>${c.used ? "Utilisé par " + esc(nm(c.used)) : "Disponible"} · état : ${c.role==="responsable"?"Responsable":"Cheminot"} · généré par ${esc(nm(c.by))}</p></div>`).join("") || "<p>Aucun code.</p>"}</div>
-      <button data-act="newCode" data-r="cheminot">+ Générer un code Membre</button>${isS() ? `<button class="sec" data-act="newCode" data-r="responsable">+ Générer un code Responsable</button>` : ""}</div>${backBtn()}`;
+      <button class="sec" data-act="toggleCodes">🔐 Afficher / masquer les codes générés (${l.length})</button><div id="codesList" hidden>${l.map(c => `<div class="item" style="cursor:default"><div class="row"><span class="code">${esc(c.code)}</span><button style="width:auto;margin:0;padding:7px 10px" data-act="copyCode" data-code="${esc(c.code)}">Copier</button></div><p>${c.used ? "Utilisé par " + esc(nm(c.used)) : "Disponible"} · état : ${c.role==="safouin"?"Safouin":"Cheminot"} · généré par ${esc(nm(c.by))}</p></div>`).join("") || "<p>Aucun code.</p>"}</div>
+      <button data-act="newCode" data-r="cheminot">+ Générer un code Membre</button>${isS() ? `<button class="sec" data-act="newCode" data-r="safouin">+ Générer un code Safouin</button>` : ""}</div>${backBtn()}`;
   },
   trace() {
     const l = isS() ? S.members.filter(m => m.role !== "cheminot") : [me()];
@@ -422,25 +452,25 @@ const A = {
     if (d.pin.length < 6) return e("Le mot de passe doit contenir au moins 6 caractères.");
     if (S.members.some(m => normPhone(m.phone) === ph)) return e("Ce numéro est déjà inscrit.");
     let role = "cheminot", cd = null;
-    if (c === GENERAL_CODE && !S.members.some(m => m.role === "safouin")) role = "safouin";
+    if (c === GENERAL_CODE && !S.members.some(m => m.role === "founder")) role = "founder";
     else { cd = S.codes.find(x => x.code === c && !x.used); if (!cd) return e("Code d'accès invalide ou déjà utilisé."); role = cd.role; }
     if (!vid) return e("Choisissez votre village.");
     if (!S.villages.some(v => v.id === vid)) return e("Ce village n'est pas disponible.");
     const id = uid("m_");
-    S.members.push({ id, ...d, phone: d.phone, vil: vid, village: S.villages.find(v=>v.id===vid)?.name || "", role, photo:"", surname: role === "responsable" ? d.name.trim().split(/\s+/)[0] : "", by: cd ? cd.by : null, idc: c, l1: "", l2: "", active: true, pin: await hash(d.pin, id), editAllowed: false });
+    S.members.push({ id, ...d, phone: d.phone, vil: vid, village: S.villages.find(v=>v.id===vid)?.name || "", role, photo:"", surname: role === "safouin" ? d.name.trim().split(/\s+/)[0] : "", by: cd ? cd.by : null, idc: c, l1: "", l2: "", active: true, pin: await hash(d.pin, id), editAllowed: false });
     if (cd) cd.used = id;
-    S.cur = id; save(); hist = []; go("home"); chime(); toast(role === "safouin" ? "Compte Responsable général créé !" : role === "responsable" ? "Bienvenue Chef !" : "Bienvenue parmi les Cheminots !");
+    S.cur = id; save(); hist = []; go("home"); chime(); toast(role === "founder" ? "Compte Safhouin fondateur créé !" : role === "safouin" ? "Bienvenue Chef !" : "Bienvenue parmi les Cheminots !");
   },
-  editMe() { const u=me(); if (u.role === "cheminot" && !u.editAllowed) return toast("Demandez à votre Responsable d'autoriser la modification de votre profil."); editMember(u); },
+  editMe() { const u=me(); if (u.role === "cheminot" && !u.editAllowed) return toast("Demandez à votre Safouin d'autoriser la modification de votre profil."); editMember(u); },
   editMember: d => editMember(S.members.find(m => m.id === d.p)),
   allowEdit(d) { const m=S.members.find(x=>x.id===d.p); if(m){m.editAllowed=true;save();toast("Modification autorisée pour ce jeune.");} },
   allowEdit(d) { const m=S.members.find(x=>x.id===d.p); if(m){m.editAllowed=true;save();toast("Le jeune peut maintenant modifier son profil.");} },
-  toggleMember(d) { const m = S.members.find(x => x.id === d.p); if (!m) return; if (m.role === "safouin") return toast("Le Responsable général ne peut pas être bloqué."); if (!isS() && m.role !== "cheminot") return toast("Action réservée au Responsable général."); m.active = !m.active; save(); render(); toast(m.active ? "Compte débloqué." : "Compte bloqué : cette personne n'a plus accès à son compte."); },
-  setRole(d) { const m = S.members.find(x => x.id === d.p); if (!m || !isS() || m.role === "safouin") return; m.role = d.r; m.surname = d.r === "responsable" ? (m.surname || m.name.trim().split(/\s+/)[0]) : ""; save(); render(); toast(d.r === "responsable" ? "Promu Responsable." : "Rétrogradé Cheminot."); },
+  toggleMember(d) { const m = S.members.find(x => x.id === d.p); if (!m) return; if (m.role === "founder") return toast("Le Safhouin fondateur ne peut pas être bloqué."); if (!isS() && m.role !== "cheminot") return toast("Action réservée au Safhouin fondateur."); m.active = !m.active; save(); render(); toast(m.active ? "Compte débloqué." : "Compte bloqué : cette personne n'a plus accès à son compte."); },
+  setRole(d) { const m = S.members.find(x => x.id === d.p); if (!m || !isS() || m.role === "founder") return; m.role = d.r; m.surname = d.r === "safouin" ? (m.surname || m.name.trim().split(/\s+/)[0]) : ""; save(); render(); toast(d.r === "safouin" ? "Promu Safouin." : "Rétrogradé Cheminot."); },
   newVillage() { const n = $("#vn").value.trim(); if (!n) return toast("Donnez un nom au village."); S.villages.push({ id: uid("v_"), name: n, color: $("#vc").value }); save(); render(); chime(); },
   newCode(d) {
     let c; do c = "GB-" + Array.from({ length: 6 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]).join(""); while (S.codes.some(x => x.code === c));
-    S.codes.unshift({ code: c, role: d.r === "responsable" && isS() ? "responsable" : "cheminot", by: S.cur, used: null, createdAt: Date.now() }); save(); render(); chime();
+    S.codes.unshift({ code: c, role: d.r === "safouin" && isS() ? "safouin" : "cheminot", by: S.cur, used: null, createdAt: Date.now() }); save(); render(); chime();
     $("#modal").innerHTML = `<div class="box"><h3>Code d'invitation créé</h3><p>Copiez ce code et envoyez-le à la personne invitée. Il ne sert qu'une seule fois.</p><input id="newc" readonly value="${c}" style="font-family:ui-monospace,monospace;font-size:1.4rem;text-align:center;letter-spacing:.12em;margin-top:8px"><button data-act="copyNew">📋 Copier le code</button><button class="sec" data-act="mNo">Fermer</button></div>`;
     $("#modal").style.display = "flex"; setTimeout(() => { const i = $("#newc"); if (i) { i.focus(); i.select(); } }, 50);
   },
@@ -469,12 +499,12 @@ const A = {
 };
 function editMember(m) {
   form("Modifier les informations", [{k:"name",l:"Nom et prénoms",v:m.name},{k:"birth",l:"Date de naissance",v:m.birth,t:"date"},{k:"school",l:"École",v:m.school},{k:"classe",l:"Classe",v:m.classe || ""},{k:"phone",l:"Téléphone",v:m.phone,t:"tel"},{k:"parent",l:"Contact parent",v:m.parent,t:"tel"},{k:"address",l:"Quartier",v:m.address},{k:"group",l:"Paroisse / Groupe",v:m.group || ""}],
-    o => { if(Object.values(o).some(v=>!v)){toast("Aucun champ ne peut être vide.");return false;} Object.assign(m,o); if(m.role==="responsable") m.surname=o.name.trim().split(/\s+/)[0]; if(m.role==="cheminot") m.editAllowed=false; save(); toast("Informations mises à jour."); });
+    o => { if(Object.values(o).some(v=>!v)){toast("Aucun champ ne peut être vide.");return false;} Object.assign(m,o); if(m.role==="safouin") m.surname=o.name.trim().split(/\s+/)[0]; if(m.role==="cheminot") m.editAllowed=false; save(); toast("Informations mises à jour."); });
 }
 function openMenu() {
   const u = me(), it = [["home", "🏠 Accueil"], ["about", "ℹ️ À propos"], ["set", "⚙️ Réglages"]];
   if (staff()) it.push(["members", "👥 Cheminots"], ["villages", "🏘️ Villages"], ["codes", "🔑 Codes"], ["trace", "🧭 Traçabilité"], ["write", "✍️ Rédaction"], ["exp", "📄 Exports"]);
-  if (isS()) it.splice(4, 0, ["resp", "👑 Responsables"]);
+  if (isS()) it.splice(4, 0, ["resp", "👑 Safouins"]);
   $("#dp").innerHTML = it.map((x, i) => `<button class="mi sec" style="--i:${i}" data-act="go" data-t="${x[0]}">${x[1]}</button>`).join("") + (u ? `<button class="mi dg" style="--i:${it.length}" data-act="logout">⏻ Se déconnecter</button>` : "") + `<button class="mi" style="--i:${it.length+1}" data-act="contact">💬 Contacter le développeur</button>`;
 }
 function closeMenu() { $("#drawer").classList.remove("open"); document.querySelector(".burger").classList.remove("x"); }
@@ -485,12 +515,12 @@ function voice() { if (Date.now() - (S.voice || 0) < 5 * 36e5) return; S.voice =
 const FL = `<path d="M50 4C63 24 65 50 50 78C35 50 37 24 50 4Z"/><path d="M43 82C34 44 6 44 8 72C9 90 30 94 43 86Z"/><path d="M57 82C66 44 94 44 92 72C91 90 70 94 57 86Z"/><rect x="28" y="86" width="44" height="9" rx="3"/><path d="M50 98C44 112 32 118 24 138C36 128 45 126 50 131C55 126 64 128 76 138C68 118 56 112 50 98Z"/>`;
 const PAT = (() => { let o = ""; for (let r = 0; r < 2; r++) for (let i = 0; i < 8; i++) o += `<g transform="translate(${-10 + i * 125 + (r ? 60 : 0)} ${r ? 305 : -85}) scale(1.3)">${FL}</g>`; return `<g fill="#f6a35f" opacity=".38">${o}</g>`; })();
 const ICON = `<svg width="116" height="116" viewBox="0 0 116 116" fill="none" stroke="#e0630f" stroke-width="5"><circle cx="58" cy="34" r="20"/><path d="M18 100V92Q18 68 58 68Q98 68 98 92V100Z"/></svg>`;
-const idOf = u => u.idc || S.codes.find(c => c.used === u.id)?.code || (u.role === "safouin" ? GENERAL_CODE : u.id);
+const idOf = u => u.idc || S.codes.find(c => c.used === u.id)?.code || (u.role === "founder" ? GENERAL_CODE : u.id);
 const validity = () => { const d = new Date(), y = d.getFullYear(), a = d.getMonth() >= 8 ? y : y - 1; return a + "-" + (a + 1); };
 const cleanUrl = v => { v = String(v || "").trim(); return v && !/^[a-z][a-z0-9+.-]*:/i.test(v) ? "https://" + v : v; };
 const qrText = u => [u.l1, u.l2].filter(Boolean).join("\n") || " ";
 function cardHTML(u) {
-  const v = vil(u.vil) || { name: u.village || "" }, isSt = ["safouin", "responsable"].includes(u.role), n = S.members.filter(m => m.by === u.id).length;
+  const v = vil(u.vil) || { name: u.village || "" }, isSt = ["founder","safhouin","founder"].includes(u.role), n = S.members.filter(m => m.by === u.id).length;
   const F = [["NOM ET PRENOMS", u.name], ["DATE DE NAISSANCE", u.birth ? new Date(u.birth + "T00:00").toLocaleDateString("fr-FR") : ""], ["ECOLE", u.school], ["CLASSE", u.classe], ["QUARTIER", u.address], ["TELEPHONE PARENT", u.parent], ["PAROISSE / GROUPE", u.group], ["VALIDITE", validity()], ["FONCTION", RL[u.role]]];
   return `<div class="idc"><svg class="pat" viewBox="0 0 960 458">${PAT}</svg>
     <div class="hd"><div class="lg"><img src="${LOGO}" alt=""></div>
@@ -664,7 +694,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
   const authTabs = on => `<div class="tabs"><button class="${on === "auth" ? "" : "sec"}" data-act="go" data-t="auth">Connexion</button><button class="${on === "reg" ? "" : "sec"}" data-act="go" data-t="reg">Inscription</button></div>`;
   PARENT.regDone = "profile"; PARENT.forgot = "profile"; PARENT.resetPw = "profile";
 
-  V.auth = () => authTabs("auth") + `<h2>Connexion</h2>${authNotice ? `<div class="card" style="border-color:var(--ac)"><p style="color:var(--tx)"><strong>✅ ${authNotice}</strong></p></div>` : ""}<div class="card"><p>J'ai déjà un compte.</p><label>Adresse e-mail</label><input id="lp" type="email" autocomplete="email" placeholder="nom@exemple.com" value="${esc(pendingEmail)}"><label>Mot de passe</label><input id="lpin" type="password" autocomplete="current-password"><div class="err" id="err"></div><div id="resendBox"></div><button data-act="login" style="margin:0">Se connecter</button><button class="link" data-act="go" data-t="forgot">Mot de passe oublié ?</button></div><div class="card"><p>Pas encore de compte ? Il te faut un code d'invitation remis par ton Responsable.</p><button class="sec" data-act="go" data-t="reg" style="margin:0">Je m'inscris</button></div>`;
+  V.auth = () => authTabs("auth") + `<h2>Connexion</h2>${authNotice ? `<div class="card" style="border-color:var(--ac)"><p style="color:var(--tx)"><strong>✅ ${authNotice}</strong></p></div>` : ""}<div class="card"><p>J'ai déjà un compte.</p><label>Adresse e-mail</label><input id="lp" type="email" autocomplete="email" placeholder="nom@exemple.com" value="${esc(pendingEmail)}"><label>Mot de passe</label><input id="lpin" type="password" autocomplete="current-password"><div class="err" id="err"></div><div id="resendBox"></div><button data-act="login" style="margin:0">Se connecter</button><button class="link" data-act="go" data-t="forgot">Mot de passe oublié ?</button></div><div class="card"><p>Pas encore de compte ? Il te faut un code d'invitation remis par ton Safouin.</p><button class="sec" data-act="go" data-t="reg" style="margin:0">Je m'inscris</button></div>`;
 
   V.reg = () => authTabs("reg") + `<div class="${regLit ? "lit" : ""}" id="stg"><div class="stage"><div class="halo"></div><svg class="hat" viewBox="0 0 200 120"><ellipse cx="100" cy="88" rx="96" ry="22" fill="#7a5a30"/><path d="M52 84Q54 26 100 22Q146 26 148 84Z" fill="#a07c4a"/><path d="M52 74Q100 90 148 74L148 84Q100 100 52 84Z" fill="#3a2a14"/></svg><svg class="fl" data-act="lit" role="button" aria-label="Fleur de lys" viewBox="0 0 100 140">${FL}</svg></div><p class="hint">Touchez la fleur de lys pour commencer</p></div>
     <div id="regf" class="${regLit ? "on" : ""}"><h2>Inscription</h2><div class="card"><p>Cette page sert à créer un <strong>nouveau compte</strong>. Tu en as déjà un ? <button class="link" data-act="go" data-t="auth">Va sur « Connexion »</button></p>
@@ -673,7 +703,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     <label>Date de naissance *</label><input id="r_birth" type="date" max="${today()}"><label>École *</label><input id="r_school"><label>Classe *</label><input id="r_classe">
     <label>Téléphone * (avec indicatif, ex. 225…)</label><input id="r_phone" type="tel"><label>Contact d'un parent *</label><input id="r_parent" type="tel"><label>Quartier *</label><input id="r_addr">
     <label>Paroisse / Groupe</label><input id="r_group" placeholder="Votre paroisse ou groupe scout"><label>Village *</label><select id="r_vil"><option value="">— Choisir votre village —</option>${S.villages.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join("")}</select>
-    <label>Mot de passe * (${PIN_LEN} caractères)</label><input id="r_pin" type="password" maxlength="${PIN_LEN}" autocomplete="new-password"><label>Confirmer le mot de passe *</label><input id="r_pin2" type="password" maxlength="${PIN_LEN}" autocomplete="new-password"><label>Code d'invitation remis par le Responsable *</label><input id="r_code" autocapitalize="characters">
+    <label>Mot de passe * (${PIN_LEN} caractères)</label><input id="r_pin" type="password" maxlength="${PIN_LEN}" autocomplete="new-password"><label>Confirmer le mot de passe *</label><input id="r_pin2" type="password" maxlength="${PIN_LEN}" autocomplete="new-password"><label>Code d'invitation remis par le Safouin *</label><input id="r_code" autocapitalize="characters">
     <div class="err" id="err"></div><button data-act="register" style="margin:0">Créer mon compte</button>${backBtn()}</div></div>`;
 
   V.regDone = () => `<div class="card" style="text-align:center"><div style="font-size:2.6rem">📧</div><h2>Inscription réussie !</h2><p style="color:var(--tx);font-weight:600">Vérifiez votre e-mail.</p><p>Un lien de confirmation a été envoyé à <strong>${esc(pendingEmail)}</strong>. Cliquez dessus pour activer votre compte, puis revenez vous connecter.</p><p>Rien reçu ? Regardez dans les courriers indésirables (spam).</p><div class="err" id="err"></div><button data-act="resend">Renvoyer le lien de confirmation</button><button class="sec" data-act="go" data-t="auth">J'ai confirmé : me connecter</button></div>`;
@@ -688,8 +718,8 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     ${S.posts.length?[...S.posts].sort((a,b)=>b.ts-a.ts).map(p=>`<div class="card"><div class="row"><strong>${esc(p.author)}</strong><small>${new Date(p.ts).toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"})}</small></div><p style="color:var(--tx)">${esc(p.text).replace(/\n/g,"<br>")}</p>${u&&(staff()||p.by===u.id)?`<button class="dg" data-act="delPost" data-p="${p.id}">Supprimer</button>`:""}</div>`).join(""):`<div class="card"><p>Aucune publication. Soyez le premier !</p></div>`}`;
   };
   V.members = () => `<h2>Cheminots</h2><input placeholder="🔍 Rechercher…" oninput="filterMembers(this.value)"><div class="card" id="ml">${memberList("")}</div>${backBtn()}`;
-  V.resp = () => {const l=S.members.filter(m=>m.role==="responsable");return `<h2>Responsables (${l.length})</h2><div class="card">${l.map(m=>`<div class="item row" data-act="go" data-t="member" data-p="${m.id}"><span>${esc(displayName(m))} ${m.active?"":'<span class="badge">bloqué</span>'}</span>›</div>`).join("")||"<p>Aucun Responsable.</p>"}</div><button data-act="newCode" data-r="responsable">+ Générer un code Responsable</button>${backBtn()}`;};
-  V.member = () => {const m=S.members.find(x=>x.id===P);if(!m)return V.members();return `<div class="card"><h2>${esc(displayName(m))}</h2><p>🎂 ${m.birth?fmtDate(m.birth):"-"}</p><p>🏫 ${esc(m.school)} · ${esc(m.classe)}</p><p>📞 ${esc(m.phone)}</p><p>👪 ${esc(m.parent)}</p><p>📍 ${esc(m.address)}</p>${genderLine(m)}<p>${rb(m)} ${unitBadge(m)} ${vb(m)} <span class="badge">${m.active?"actif":"bloqué"}</span></p>${m.by?`<p>Invité par : <strong>${esc(nm(m.by))}</strong></p>`:""}${staff()&&needsConfirm(m)?confirmBtns(m):""}<button data-act="editMember" data-p="${m.id}">Modifier les informations</button>${staff()&&m.role==="cheminot"&&!m.editAllowed?`<button class="sec" data-act="allowEdit" data-p="${m.id}">Autoriser la modification du profil</button>`:""}${isS()&&m.role!=="safouin"?`<button class="sec" data-act="setRole" data-p="${m.id}" data-r="${m.role==="cheminot"?"responsable":"cheminot"}">${m.role==="cheminot"?"Promouvoir Responsable":"Rétrograder Cheminot"}</button>`:""}${isS()&&m.role!=="safouin"?`<button class="${m.active?"dg":"sec"}" data-act="toggleMember" data-p="${m.id}">${m.active?"Bloquer":"Débloquer"} le compte</button>`:""}${backBtn()}</div>`;};
+  V.resp = () => {const l=S.members.filter(m=>m.role==="safouin");return `<h2>Safouins (${l.length})</h2><div class="card">${l.map(m=>`<div class="item row" data-act="go" data-t="member" data-p="${m.id}"><span>${esc(displayName(m))} ${m.active?"":'<span class="badge">bloqué</span>'}</span>›</div>`).join("")||"<p>Aucun Safouin.</p>"}</div><button data-act="newCode" data-r="safouin">+ Générer un code Safouin</button>${backBtn()}`;};
+  V.member = () => {const m=S.members.find(x=>x.id===P);if(!m)return V.members();return `<div class="card"><h2>${esc(displayName(m))}</h2><p>🎂 ${m.birth?fmtDate(m.birth):"-"}</p><p>🏫 ${esc(m.school)} · ${esc(m.classe)}</p><p>📞 ${canSeePhone(m)?esc(m.phone):"Numéro masqué"}</p><p>👪 ${esc(m.parent)}</p><p>📍 ${esc(m.address)}</p>${genderLine(m)}<p>${rb(m)} ${unitBadge(m)} ${vb(m)} <span class="badge">${m.active?"actif":"bloqué"}</span></p>${m.by?`<p>Invité par : <strong>${esc(nm(m.by))}</strong></p>`:""}${staff()&&needsConfirm(m)?confirmBtns(m):""}<button data-act="editMember" data-p="${m.id}">Modifier les informations</button>${staff()&&m.role==="cheminot"&&!m.editAllowed?`<button class="sec" data-act="allowEdit" data-p="${m.id}">Autoriser la modification du profil</button>`:""}${canPromote(m)?`<button class="sec" data-act="promouvoirSafouin" data-p="${m.id}">⬆️ Promouvoir en Safouin</button>`:""}${canDemote(m)?`<button class="sec" data-act="retrograderSafouin" data-p="${m.id}">⬇️ Rétrograder en Cheminot</button>`:""}${canBlockMember(m)?`<button class="${m.active?"dg":"sec"}" data-act="toggleMember" data-p="${m.id}">${m.active?"Bloquer":"Débloquer"} le compte</button>`:""}${canDeleteMember(m)?`<button class="dg" data-act="supprimerMembre" data-p="${m.id}">❌ Supprimer définitivement</button>`:""}${backBtn()}</div>`;};
   V.villages = () => `<h2>Villages de la Tribu Gbê</h2><div class="card">${S.villages.map(v=>`<div class="item row" style="cursor:default"><span><i style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${v.color};margin-right:8px"></i>${esc(v.name)}</span><small>${S.members.filter(m=>m.vil===v.id&&m.active).length} membre(s)</small></div>`).join("")}</div>${isS()?`<div class="card"><label>Nom du village</label><input id="vn"><label>Couleur</label><input id="vc" type="color" value="#64748b"><button data-act="newVillage">Ajouter un village</button></div>`:""}${backBtn()}`;
   /* ===== Unités (Cheminot / Routier), jeunes sans compte, statistiques, codes ===== */
   const GRACE_DAYS = 3;
@@ -724,7 +754,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
   const GENDER_OPTS = [["", "— Choisir —"], ["M", "Garçon"], ["F", "Fille"]];
 
   function managedForm(m) {
-    if (!staff()) return toast("Action réservée aux responsables.");
+    if (!staff()) return toast("Action réservée aux Safouins.");
     if (!S.managedOk) return toast("Fonction indisponible : exécutez d'abord le script SQL fourni (table managed_members).", 6000);
     form2(m ? "Modifier le jeune" : "Ajouter un jeune sans compte", [
       {k:"name",l:"Nom et prénoms *",v:m?.name},{k:"gender",l:"Sexe *",t:"select",o:GENDER_OPTS,v:m?.gender},{k:"birth",l:"Date de naissance *",t:"date",v:m?.birth},
@@ -752,7 +782,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
   const membersV1 = V.members;
   V.members = () => {
     let h = membersV1(); const l = myManaged();
-    const extra = `<div class="card"><h3>Jeunes sans compte (${l.length})</h3><p>Jeunes sans téléphone, enregistrés par un responsable pour les statistiques.</p>${l.map(m => `<div class="item row" data-act="go" data-t="managedDetail" data-p="${m.id}"><span>${esc(m.name)} ${vb(m)}</span>›</div>`).join("") || ""}<button data-act="addManaged">+ Ajouter un jeune sans compte</button></div>`;
+    const extra = `<div class="card"><h3>Jeunes sans compte (${l.length})</h3><p>Jeunes sans téléphone, enregistrés par un Safouin pour les statistiques.</p>${l.map(m => `<div class="item row" data-act="go" data-t="managedDetail" data-p="${m.id}"><span>${esc(m.name)} ${vb(m)}</span>›</div>`).join("") || ""}<button data-act="addManaged">+ Ajouter un jeune sans compte</button></div>`;
     const i = h.lastIndexOf('<button class="sec" data-act="back">');
     return i < 0 ? h + extra : h.slice(0, i) + extra + h.slice(i);
   };
@@ -789,7 +819,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     if (!staff()) return V.home();
     const st = statsData(), max = Math.max(1, ...S.villages.map(v => st.byVil[v.id].cheminot.t)), unknown = st.cheminot.N + st.routier.N + st.jeune.N;
     return `<h2>Statistiques</h2>
-      <div class="kpi"><div><b>${st.cheminot.t}</b><span>Cheminots</span></div><div><b>${st.safouin.t}</b><span>Safouin</span></div><div><b>${st.responsable.t}</b><span>Responsables</span></div><div><b>${st.routier.t}</b><span>Routiers</span></div></div>
+      <div class="kpi"><div><b>${st.cheminot.t}</b><span>Cheminots</span></div><div><b>${st.safouin.t}</b><span>Fondateur</span></div><div><b>${st.responsable.t}</b><span>Safouins</span></div><div><b>${st.routier.t}</b><span>Routiers</span></div></div>
       <div class="card"><h3>Cheminots : garçons et filles</h3><p>${gl(st.cheminot)}</p>${bar(st.cheminot, st.cheminot.t || 1)}${st.jeune.t ? `<p>Moins de 15 ans : ${st.jeune.t} (${gl(st.jeune)})</p>` : ""}${st.routier.t ? `<p>Routiers : ${st.routier.t} (${gl(st.routier)})</p>` : ""}</div>
       <div class="card"><h3>Cheminots par village</h3>${S.villages.map(v => { const b = st.byVil[v.id]; return `<div style="margin-bottom:12px"><div class="row"><span><i style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${v.color};margin-right:6px"></i><strong>${esc(v.name)}</strong></span><strong>${b.cheminot.t}</strong></div><small style="color:var(--tx2)">${gl(b.cheminot)}${b.routier.t ? ` · Routiers : ${b.routier.t}` : ""}${b.jeune.t ? ` · −15 ans : ${b.jeune.t}` : ""}</small>${bar(b.cheminot, max)}</div>`; }).join("")}
       <div class="legend"><span><i style="background:${GC.M}"></i>Garçons</span><span><i style="background:${GC.F}"></i>Filles</span><span><i style="background:${GC.N}"></i>Non précisé</span></div></div>
@@ -804,9 +834,9 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     const sm = 'style="width:auto;margin:0;padding:7px 10px"';
     return `<h2>Codes d'invitation</h2><div class="card"><p>Les codes sont cachés par défaut. Ouvrez la liste, puis touchez 👁 pour afficher un code, ou « Copier » pour le transmettre.</p>
       <button class="sec" data-act="toggleCodes">🔐 Codes disponibles (${free.length}) ${codesOpen ? "▴" : "▾"}</button>
-      ${codesOpen ? `<div id="codesList">${free.map(c => `<div class="item" style="cursor:default"><div class="row"><span class="code">${c.plain ? (shown.has(c.id) ? esc(c.plain) : "GB-••••••••••") : "Code non récupérable"}</span>${c.plain ? `<span style="display:flex;gap:6px"><button class="sec" ${sm} data-act="revealCode" data-i="${c.id}">${shown.has(c.id) ? "🙈" : "👁"}</button><button ${sm} data-act="copyCode" data-i="${c.id}">Copier</button></span>` : ""}</div><p>${c.role === "responsable" ? "Responsable" : "Cheminot"} · créé le ${new Date(c.createdAt).toLocaleDateString("fr-FR")} · par ${esc(nm(c.by))}</p></div>`).join("") || "<p>Aucun code disponible.</p>"}
-      ${used.length ? `<h3 style="margin-top:10px">Déjà utilisés (${used.length})</h3>${used.map(c => `<div class="item" style="cursor:default"><p>${c.role === "responsable" ? "Responsable" : "Cheminot"} · utilisé par ${esc(nm(c.used))} · créé le ${new Date(c.createdAt).toLocaleDateString("fr-FR")}</p></div>`).join("")}` : ""}</div>` : ""}
-      <button data-act="newCode" data-r="cheminot">+ Générer un code Membre</button>${isS() ? `<button class="sec" data-act="newCode" data-r="responsable">+ Générer un code Responsable</button>` : ""}</div>${backBtn()}`;
+      ${codesOpen ? `<div id="codesList">${free.map(c => `<div class="item" style="cursor:default"><div class="row"><span class="code">${c.plain ? (shown.has(c.id) ? esc(c.plain) : "GB-••••••••••") : "Code non récupérable"}</span>${c.plain ? `<span style="display:flex;gap:6px"><button class="sec" ${sm} data-act="revealCode" data-i="${c.id}">${shown.has(c.id) ? "🙈" : "👁"}</button><button ${sm} data-act="copyCode" data-i="${c.id}">Copier</button></span>` : ""}</div><p>${c.role === "safouin" ? "Safouin" : "Cheminot"} · créé le ${new Date(c.createdAt).toLocaleDateString("fr-FR")} · par ${esc(nm(c.by))}</p></div>`).join("") || "<p>Aucun code disponible.</p>"}
+      ${used.length ? `<h3 style="margin-top:10px">Déjà utilisés (${used.length})</h3>${used.map(c => `<div class="item" style="cursor:default"><p>${c.role === "safouin" ? "Safouin" : "Cheminot"} · utilisé par ${esc(nm(c.used))} · créé le ${new Date(c.createdAt).toLocaleDateString("fr-FR")}</p></div>`).join("")}` : ""}</div>` : ""}
+      <button data-act="newCode" data-r="cheminot">+ Générer un code Membre</button>${isS() ? `<button class="sec" data-act="newCode" data-r="safouin">+ Générer un code Safouin</button>` : ""}</div>${backBtn()}`;
   };
 
   /* Menu : raccourcis responsables */
@@ -821,7 +851,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     const m = me(); if (!m || m.role !== "cheminot" || unitOf(m) !== "routier" || m.routierNotified || noticeShown) return;
     const key = "gbe_routier_" + m.id; try { if (localStorage.getItem(key)) return; } catch (e) {}
     noticeShown = true;
-    $("#modal").innerHTML = `<div class="box"><h3>🎖️ Tu as maintenant 18 ans !</h3><p>Tu passes dans l'unité <strong>Routier</strong>. Tu gardes l'accès à toutes les interfaces de l'application.</p><p>Dans ${GRACE_DAYS} jours, ton Responsable confirmera si tu restes dans l'unité Cheminot.</p><button data-act="ackRoutier">J'ai compris</button></div>`;
+    $("#modal").innerHTML = `<div class="box"><h3>🎖️ Tu as maintenant 18 ans !</h3><p>Tu passes dans l'unité <strong>Routier</strong>. Tu gardes l'accès à toutes les interfaces de l'application.</p><p>Dans ${GRACE_DAYS} jours, ton Safouin confirmera si tu restes dans l'unité Cheminot.</p><button data-act="ackRoutier">J'ai compris</button></div>`;
     $("#modal").style.display = "flex";
   }
 
@@ -840,7 +870,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
       return;
     }
     recovery=false; authNotice=""; await refreshAndRender();
-    if(!me()){ const e=$("#err"); if(e)e.textContent="Compte introuvable ou bloqué. Contactez votre Responsable."; return; }
+    if(!me()){ const e=$("#err"); if(e)e.textContent="Compte introuvable ou bloqué. Contactez votre Safouin."; return; }
     hist=[];go("home");chime();voice();
   };
   A.register = async () => {
@@ -890,9 +920,9 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
   };
   A.logout = async () => {const {error}=await sb.auth.signOut();if(error)return dbError(error);S.cur=null;S.members=[];S.posts=[];hist=[];await refreshAndRender();go("home");};
   A.newCode = async d => {
-    if(!staff())return toast("Action réservée aux responsables.");
+    if(!staff())return toast("Action réservée aux Safouins.");
     const code="GB-"+Array.from({length:10},()=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[crypto.getRandomValues(new Uint8Array(1))[0]%32]).join("");
-    const role=d.r==="responsable"&&isS()?"responsable":"cheminot";
+    const role=d.r==="safouin"&&isS()?"safouin":"cheminot";
     const user=await currentUser();
     const {data:ins,error}=await sb.from("invite_codes").insert({code_hash:await sha256(code),assigned_role:role,created_by:user.id}).select("id").single();
     if(error)return dbError(error,"Impossible de créer le code.");
@@ -913,7 +943,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     await refreshAndRender(); hist.pop(); go("members",null,true); toast("Jeune supprimé.");
   };
   A.confirmUnit = async d => {
-    if(!staff())return toast("Action réservée aux responsables.");
+    if(!staff())return toast("Action réservée aux Safouins.");
     const {error}=await sb.rpc("tribu_decide_unit",{p_user:d.k==="m"?d.p:null,p_managed:d.k==="g"?d.p:null,p_decision:d.v});
     if(error)return dbError(error,"Impossible d'enregistrer la décision.");
     await refreshAndRender(); toast(d.v==="cheminot"?"Il reste dans l'unité Cheminot.":"Il passe dans l'unité Routier.");
@@ -923,22 +953,22 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     if(m){ try{localStorage.setItem("gbe_routier_"+m.id,"1");}catch(e){} const {error}=await sb.rpc("tribu_ack_routier"); if(error)console.warn("tribu_ack_routier:",error.message); }
   };
 
-  A.newAnn = () => {if(!staff())return toast("Action réservée aux responsables.");form("Nouvelle annonce",[{k:"title",l:"Titre *"},{k:"date",l:"Date *",t:"date",v:today()},{k:"time",l:"Heure",t:"time",v:"18:00"},{k:"lieu",l:"Lieu"},{k:"desc",l:"Description",t:"area"}],async o=>{if(!o.title||!o.date){toast("Titre et date obligatoires.");return false;}const user=await currentUser();const {error}=await sb.from("announcements").insert({title:o.title,event_date:o.date,event_time:o.time||null,location:o.lieu||"À définir",description:o.desc||"",created_by:user.id});if(error)dbError(error);else{await refreshAndRender();toast("Annonce publiée pour tous les utilisateurs.");}});};
+  A.newAnn = () => {if(!staff())return toast("Action réservée aux Safouins.");form("Nouvelle annonce",[{k:"title",l:"Titre *"},{k:"date",l:"Date *",t:"date",v:today()},{k:"time",l:"Heure",t:"time",v:"18:00"},{k:"lieu",l:"Lieu"},{k:"desc",l:"Description",t:"area"}],async o=>{if(!o.title||!o.date){toast("Titre et date obligatoires.");return false;}const user=await currentUser();const {error}=await sb.from("announcements").insert({title:o.title,event_date:o.date,event_time:o.time||null,location:o.lieu||"À définir",description:o.desc||"",created_by:user.id});if(error)dbError(error);else{await refreshAndRender();toast("Annonce publiée pour tous les utilisateurs.");}});};
   A.delAnn = async d => {if(!isS()&&!staff())return toast("Action réservée.");if(!confirm("Supprimer cette annonce ?"))return;const {error}=await sb.from("announcements").delete().eq("id",d.p);if(error)return dbError(error);await refreshAndRender();go("ann");};
   A.rsvp = async d => {const user=await currentUser();if(!user)return toast("Connectez-vous pour confirmer.");const a=S.ann.find(x=>x.id===d.p);if(!a)return;const exists=a.att.includes(user.id);const q=exists?sb.from("announcement_rsvps").delete().eq("announcement_id",a.id).eq("user_id",user.id):sb.from("announcement_rsvps").insert({announcement_id:a.id,user_id:user.id});const {error}=await q;if(error)return dbError(error);await refreshAndRender();render();};
   A.post = async () => {const body=$("#post").value.trim();if(!body)return toast("Écrivez un message.");const user=await currentUser();const {error}=await sb.from("community_posts").insert({user_id:user.id,body});if(error)return dbError(error);await refreshAndRender();render();};
   A.delPost = async d => {if(!confirm("Supprimer cette publication ?"))return;const {error}=await sb.from("community_posts").delete().eq("id",d.p);if(error)return dbError(error);await refreshAndRender();render();};
-  A.toggleMember = async d => {if(!isS())return toast("Action réservée au Safouin.");const m=S.members.find(x=>x.id===d.p);if(!m||m.role==="safouin")return;const {error}=await sb.from("member_profiles").update({active:!m.active}).eq("user_id",m.id);if(error)return dbError(error);await refreshAndRender();render();};
-  A.setRole = async d => {if(!isS())return toast("Action réservée au Safouin.");const m=S.members.find(x=>x.id===d.p);if(!m||m.role==="safouin")return;const {error}=await sb.from("member_profiles").update({role:d.r,surname:d.r==="responsable"?m.name.trim().split(/\s+/)[0]:null}).eq("user_id",m.id);if(error)return dbError(error);await refreshAndRender();render();};
+  A.toggleMember = async d => {const m=S.members.find(x=>x.id===d.p);if(!m)return;if(!canBlockMember(m))return toast("Action non autorisée.");const {error}=await sb.from("member_profiles").update({active:!m.active}).eq("user_id",m.id);if(error)return dbError(error);await refreshAndRender();render();};
+  A.setRole = async d => {return (d.r==="safouin"?A.promouvoirSafouin:A.retrograderSafouin)(d);};
   A.allowEdit = async d => {if(!staff())return toast("Action réservée.");const {error}=await sb.from("member_profiles").update({edit_allowed:true}).eq("user_id",d.p);if(error)return dbError(error);await refreshAndRender();toast("Modification autorisée.");};
-  A.newVillage = async () => {if(!isS())return toast("Action réservée au Safouin.");const name=$("#vn").value.trim().toUpperCase();if(!name)return toast("Donnez un nom au village.");const {error}=await sb.from("villages").insert({id:"v_"+crypto.randomUUID(),name,color:$("#vc").value});if(error)return dbError(error);await refreshAndRender();render();};
+  A.newVillage = async () => {if(!isS())return toast("Action réservée au Safhouin.");const name=$("#vn").value.trim().toUpperCase();if(!name)return toast("Donnez un nom au village.");const {error}=await sb.from("villages").insert({id:"v_"+crypto.randomUUID(),name,color:$("#vc").value});if(error)return dbError(error);await refreshAndRender();render();};
   A.backup = () => toast("Les données de la Tribu sont maintenant sauvegardées sur Supabase. Les documents de rédaction restent locaux à cet appareil.");
   A.restore = () => toast("La restauration locale est désactivée pour éviter d'écraser les données partagées.");
 
   editMember = function(m) {
     if(!m)return;
-    if(m.id===S.cur&&m.role==="cheminot"&&!m.editAllowed)return toast("Demandez à votre Responsable d'autoriser la modification du profil.");
-    if(m.id!==S.cur&&!staff())return toast("Action réservée aux responsables.");
+    if(m.id===S.cur&&m.role==="cheminot"&&!m.editAllowed)return toast("Demandez à votre Safouin d'autoriser la modification du profil.");
+    if(m.id!==S.cur&&!staff())return toast("Action réservée aux Safouins.");
     const fields=[{k:"name",l:"Nom et prénoms",v:m.name},{k:"birth",l:"Date de naissance",v:m.birth,t:"date"},{k:"school",l:"École",v:m.school},{k:"classe",l:"Classe",v:m.classe},{k:"phone",l:"Téléphone",v:m.phone,t:"tel"},{k:"parent",l:"Contact parent",v:m.parent,t:"tel"},{k:"address",l:"Quartier",v:m.address},{k:"group",l:"Paroisse / Groupe",v:m.group}];
     if(S.hasGender)fields.splice(1,0,{k:"gender",l:"Sexe",t:"select",o:[["","— Non précisé —"],["M","Garçon"],["F","Fille"]],v:m.gender});
     form2("Modifier les informations",fields,async o=>{
@@ -978,6 +1008,138 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
   console.info("TRIBU GBÊ : Supabase connecté, synchronisation temps réel active.");
 })().catch(err=>{console.error("Initialisation Supabase impossible",err);toast("Connexion au serveur impossible. Vérifiez votre connexion Internet.",6000);});
 
+
+/* ===== Bouton Slogan (menu hamburger) ===== */
+(() => {
+  const SLOGAN = "🌍 LA TERRE EST NOTRE HÉRITAGE COMMUN, PROTÉGEONS-LA POUR LES GÉNÉRATIONS FUTURES ! 🌳💧";
+  const BLOCKS = [
+    ["h", "🌍 Le sens de notre slogan"],
+    ["p", "La Terre n'appartient à personne en particulier : elle nous est confiée à tous 🤝. Forêts 🌳, rivières 💧, sols fertiles 🌱 et air pur 🌬️ sont un héritage commun que nous n'avons pas le droit de gaspiller."],
+    ["p", "« Protégeons-la pour les générations futures » nous rappelle que chaque geste d'aujourd'hui prépare le monde de demain 👧🏾👦🏾. Planter un arbre 🌳, économiser l'eau 💧, ne pas jeter ses déchets dans la nature ♻️ : ce sont de petits actes qui, ensemble, changent tout."],
+    ["p", "Pour la Tribu Gbê, c'est aussi une promesse scoute ⚜️ : laisser notre village, notre pays et notre planète meilleurs que nous les avons trouvés. C'est notre devise en action : Foi 🙏, Défi 💪, Unité 🤝."],
+    ["h", "🎯 Les ODD liés à notre application"],
+    ["p", "Les Objectifs de Développement Durable (ODD) des Nations Unies 🇺🇳 sont 17 défis à relever d'ici 2030. Voici ceux qui rejoignent notre mission, aujourd'hui et dans les étapes à venir :"],
+    ["o", "4", "#c5192d", "Éducation de qualité 📚 — Espace Formation, rédaction, parcours d'apprentissage."],
+    ["o", "5", "#ff3a21", "Égalité entre les sexes 👧🏾👦🏾 — garçons et filles ont la même place dans la Tribu."],
+    ["o", "6", "#26bde2", "Eau propre et assainissement 💧 — sensibiliser à protéger nos sources d'eau."],
+    ["o", "9", "#fd6925", "Innovation et infrastructure 📱 — une application moderne au service des villages."],
+    ["o", "11", "#fd9d24", "Villes et communautés durables 🏘️ — nos villages, nos générations, notre vie en commun."],
+    ["o", "13", "#3f7e44", "Lutte contre le changement climatique 🌡️ — agir localement, penser globalement."],
+    ["o", "15", "#56c02b", "Vie terrestre 🌳🦋 — protéger forêts, sols et biodiversité."],
+    ["o", "16", "#00689d", "Paix, justice et institutions efficaces ⚖️ — confiance, traçabilité et protection des données."],
+    ["o", "17", "#19486a", "Partenariats pour les objectifs 🤝 — agir ensemble, villages, chefs et partenaires."],
+    ["p", "🌟 Ensemble, faisons de chaque Cheminot un gardien de la Terre !"]
+  ];
+  let tok = 0, flipped = false;
+  const close = () => { tok++; const o = document.getElementById("slg"); if (o) o.remove(); };
+  const type = (box, sc, my) => {
+    const act = box.querySelector(".sk"); let auto = true;
+    sc.parentElement.addEventListener("touchstart", () => auto = false, { passive: true });
+    const done = () => { if (act) act.remove(); box.querySelectorAll(".cur").forEach(e => e.classList.remove("cur")); };
+    const runBlock = i => {
+      if (my !== tok) return;
+      if (i >= BLOCKS.length) return done();
+      const b = BLOCKS[i];
+      let el, txt;
+      if (b[0] === "o") {
+        el = document.createElement("div"); el.className = "od";
+        el.innerHTML = `<b style="background:${b[2]}">ODD ${b[1]}</b><span></span>`; txt = b[3];
+        box.insertBefore(el, act); el = el.lastChild;
+      } else {
+        el = document.createElement(b[0] === "h" ? "h3" : "p"); txt = b[1]; box.insertBefore(el, act);
+      }
+      const ch = Array.from(txt); let k = 0; el.classList.add("cur");
+      const step = () => {
+        if (my !== tok) return;
+        k = Math.min(ch.length, k + 2); el.textContent = ch.slice(0, k).join("");
+        if (auto) sc.parentElement.scrollTop = sc.parentElement.scrollHeight;
+        if (k < ch.length) setTimeout(step, 22); else { el.classList.remove("cur"); setTimeout(() => runBlock(i + 1), 160); }
+      };
+      step();
+    };
+    box.skip = () => {
+      tok++; box.querySelectorAll("h3,p,.od").forEach(e => e.remove());
+      BLOCKS.forEach(b => {
+        const e = document.createElement(b[0] === "o" ? "div" : b[0] === "h" ? "h3" : "p");
+        if (b[0] === "o") { e.className = "od"; e.innerHTML = `<b style="background:${b[2]}">ODD ${b[1]}</b><span></span>`; e.lastChild.textContent = b[3]; }
+        else e.textContent = b[1];
+        box.insertBefore(e, act);
+      }); done();
+    };
+    runBlock(0);
+  };
+  A.slogan = () => {
+    closeMenu(); close(); flipped = false;
+    const o = document.createElement("div"); o.id = "slg";
+    o.innerHTML = `<div class="sw"><div class="sc"><div class="fr" data-act="slgFlip"><div style="font-size:2.4rem">🌍🌳💧</div><div class="sl"></div><div class="th">👆 Touchez la carte</div></div></div></div>`;
+    o.querySelector(".sl").textContent = SLOGAN;
+    document.querySelector(".app").appendChild(o);
+    o.addEventListener("click", e => { if (e.target === o) close(); });
+    try { snd(660, .1); } catch (e) {}
+  };
+  A.slgFlip = () => {
+    if (flipped) return; flipped = true;
+    const sc = document.querySelector("#slg .sc"); if (!sc) return;
+    try { snd(520, .08); } catch (e) {}
+    sc.classList.add("fl");
+    const my = ++tok;
+    setTimeout(() => {
+      sc.innerHTML = `<div class="bk2"><button class="x sec" data-act="slgClose" aria-label="Fermer">✕</button><button class="sec sk" data-act="slgSkip">⏩ Tout afficher</button></div>`;
+      sc.classList.remove("fl");
+      type(sc.firstChild, sc, my);
+    }, 280);
+  };
+  A.slgSkip = () => { const b = document.querySelector("#slg .bk2"); if (b && b.skip) b.skip(); };
+  A.slgClose = close;
+  const prev = openMenu;
+  openMenu = function () {
+    prev();
+    const dp = document.getElementById("dp"); if (!dp) return;
+    const btn = `<button class="mi sec" style="--i:${dp.querySelectorAll(".mi").length}" data-act="slogan">🌍 Slogan</button>`;
+    const ref = dp.querySelector('[data-act="logout"]') || dp.querySelector('[data-act="contact"]');
+    if (ref) ref.insertAdjacentHTML("beforebegin", btn); else dp.insertAdjacentHTML("beforeend", btn);
+  };
+})();
+
+/* ===== Rôles v2 : Safhouin fondateur / adjoint, Safouin, Cheminot ===== */
+(() => {
+  const rpc = async (fn, args, okMsg, errMsg) => {
+    const { error } = await sb.rpc(fn, args);
+    if (error) return dbError(error, errMsg);
+    await refreshAndRender(); toast(okMsg, 5000); return true;
+  };
+  A.promouvoirSafouin = d => confirm("Promouvoir cette personne en Safouin (chef de village) ?") && rpc("tribu_promouvoir_safouin", { p_target: d.p }, "Promu Safouin.", "Promotion impossible.");
+  A.retrograderSafouin = d => confirm("Rétrograder ce Safouin en Cheminot simple ?") && rpc("tribu_retrograder_safouin", { p_target: d.p }, "Rétrogradé en Cheminot.", "Rétrogradation impossible.");
+  A.supprimerMembre = async d => {
+    const m = S.members.find(x => x.id === d.p);
+    if (!m || !canDeleteMember(m)) return toast("Action réservée au Safhouin.");
+    if (!confirm("⚠️ Supprimer définitivement ce membre ? Cette action est irréversible.")) return;
+    if (!confirm("Dernière confirmation : supprimer ce membre et toutes ses données ?")) return;
+    if (await rpc("tribu_supprimer_membre", { p_target: d.p }, "Membre supprimé.", "Suppression impossible.")) go("members");
+  };
+  A.nommerSafhouin = d => isFounder() && confirm("Nommer cette personne Safhouin adjoint ? L'actuel adjoint (s'il existe) redeviendra Safouin.") && rpc("tribu_nommer_safhouin", { p_target: d.p }, "Safhouin adjoint nommé.", "Nomination impossible.");
+  A.retrograderSafhouin = d => isFounder() && confirm("Rétrograder ce Safhouin adjoint en Safouin ?") && rpc("tribu_retrograder_safhouin", { p_target: d.p }, "Safhouin rétrogradé.", "Rétrogradation impossible.");
+  V.safhouins = () => {
+    if (!isFounder()) return V.home();
+    const cur = S.members.find(m => m.role === "safhouin" && m.active);
+    const chefs = S.members.filter(m => m.role === "safouin" && m.active);
+    return `<h2>Safhouins</h2>
+      ${cur ? `<div class="card"><h3>👑 Safhouin adjoint actuel</h3><p><strong>${esc(cur.name)}</strong></p><p>${vb(cur)}</p>
+        <button class="dg" data-act="retrograderSafhouin" data-p="${cur.id}">⬇️ Rétrograder en Safouin</button></div>` : `<div class="card"><p>Aucun Safhouin adjoint nommé.</p></div>`}
+      <div class="card"><h3>Nommer un Safhouin adjoint</h3><p>L'adjoint voit tout mais ne peut pas nommer d'autre Safhouin.</p>
+        ${chefs.map(m => `<div class="item row" style="cursor:default"><span><strong>${esc(displayName(m))}</strong> ${vb(m)}</span>
+          <button style="width:auto;margin:0;padding:8px 12px" data-act="nommerSafhouin" data-p="${m.id}">👑 Nommer</button></div>`).join("") || "<p>Aucun Safouin disponible.</p>"}
+      </div>${backBtn()}`;
+  };
+  const prev = openMenu;
+  openMenu = function () {
+    prev();
+    if (!isFounder()) return;
+    const dp = document.getElementById("dp"), ref = dp.querySelector('[data-act="logout"]');
+    const b = `<button class="mi sec" style="--i:${dp.querySelectorAll(".mi").length}" data-act="go" data-t="safhouins">👑 Safhouins</button>`;
+    if (ref) ref.insertAdjacentHTML("beforebegin", b);
+  };
+})();
 </script>
 </body>
 </html>
