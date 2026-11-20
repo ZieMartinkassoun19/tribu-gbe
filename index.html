@@ -702,7 +702,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     try { await loadSharedData(); if (S.managedOk && !managedSub) { managedSub = true; subscribeRealtime(); } render(); checkRoutierNotice(); }
     catch (e) { dbError(e,"Impossible de synchroniser les données avec le serveur."); }
   }
-  function subscribeRealtime() { if (realtimeChannel) clearInterval(realtimeChannel); realtimeChannel = setInterval(refreshAndRender, 45000); }
+  function subscribeRealtime() { if (realtimeChannel) { clearInterval(realtimeChannel); realtimeChannel = null; } }
 
   /* ===== Améliorations : inscription, connexion, mot de passe ===== */
   const SITE_URL = location.origin + "/";
@@ -1136,7 +1136,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     } catch(e){toast("Impossible d'activer les notifications : "+e.message,5000);}
   };
   if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(e=>console.warn("PWA:",e));
-  setInterval(()=>{ if(document.visibilityState==="visible" && S.cur) refreshAndRender(); },45000);
+  // Pas de re-rendu périodique : les formulaires en cours de saisie restent intacts.
 })();
 
 /* ===== Rôles v2 : Safhouin fondateur / adjoint, Safouin, Cheminot ===== */

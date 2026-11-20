@@ -1,0 +1,12 @@
+TRIBU GBÊ — RAPPORT DE CONTRÔLE
+
+- Frontend JS syntax: PASS
+- Worker JS syntax: PASS
+- manifest.webmanifest JSON: PASS
+- PNG icons: PASS
+- 45-second auto-rerender timers removed from index.html: PASS
+- Cloudflare Worker version 9 deployed: CONFIRMED through Cloudflare API
+- D1 binding DB preserved: CONFIRMED (existing database tribu-gbe)
+- Recovery API routes deployed: CONFIRMED in uploaded Worker source
+- End-to-end browser signup/login/recovery: NOT YET EXECUTED; requires the published GitHub Pages frontend and a valid invite/setup code.
+- Public HTTP health probe: unavailable from build environment due DNS/network restriction.
