@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#ea580c">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Tribu Gbê</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -272,7 +275,7 @@ const V = {
       ${staff() ? `<div class="card" style="background:var(--bg2)"><h3>${isS() ? "👑 Zone Safhouin fondateur" : "🧭 Zone Safouin"}</h3><div class="grid">
         <button data-act="go" data-t="members">Cheminots</button>${isS() ? `<button data-act="go" data-t="resp">Safouins</button>` : ""}
         <button data-act="go" data-t="villages">Villages</button><button data-act="go" data-t="codes">Codes</button>
-        <button data-act="go" data-t="trace">Traçabilité</button><button data-act="go" data-t="write">Rédaction</button>
+        <button data-act="go" data-t="trace">Traçabilité</button><button data-act="go" data-t="recoveryAdmin">Récupération des comptes</button><button data-act="go" data-t="write">Rédaction</button>
         <button data-act="go" data-t="exp">Exports</button><button data-act="newAnn">Annonce</button></div></div>` : ""}
       <div class="card"><button class="sec" style="margin:0" data-act="contact">💬 Contacter le développeur</button></div>`;
   },
@@ -503,7 +506,7 @@ function editMember(m) {
 }
 function openMenu() {
   const u = me(), it = [["home", "🏠 Accueil"], ["about", "ℹ️ À propos"], ["set", "⚙️ Réglages"]];
-  if (staff()) it.push(["members", "👥 Cheminots"], ["villages", "🏘️ Villages"], ["codes", "🔑 Codes"], ["trace", "🧭 Traçabilité"], ["write", "✍️ Rédaction"], ["exp", "📄 Exports"]);
+  if (staff()) it.push(["members", "👥 Cheminots"], ["villages", "🏘️ Villages"], ["codes", "🔑 Codes"], ["recoveryAdmin", "🔐 Récupération des comptes"], ["trace", "🧭 Traçabilité"], ["write", "✍️ Rédaction"], ["exp", "📄 Exports"]);
   if (isS()) it.splice(4, 0, ["resp", "👑 Safouins"]);
   $("#dp").innerHTML = it.map((x, i) => `<button class="mi sec" style="--i:${i}" data-act="go" data-t="${x[0]}">${x[1]}</button>`).join("") + (u ? `<button class="mi dg" style="--i:${it.length}" data-act="logout">⏻ Se déconnecter</button>` : "") + `<button class="mi" style="--i:${it.length+1}" data-act="contact">💬 Contacter le développeur</button>`;
 }
@@ -539,7 +542,7 @@ function fillCard(c, u) {
   if (q && window.QRCode) try { new QRCode(q, { text: qrText(u), width: 256, height: 256, correctLevel: QRCode.CorrectLevel.M }); } catch (e) {}
 }
 function fitCard() { const w = $(".cw"), c = w && w.firstElementChild; if (c) c.style.transform = `scale(${w.clientWidth / 960})`; }
-function afterRender() { const u = me(); if (T === "profile" && u) { const w = $(".cw"); if (w) { w.innerHTML = cardHTML(u); fillCard(w.firstElementChild, u); fitCard(); } } }
+function afterRender() { const u = me(); if (T === "profile" && u) { const w = $(".cw"); if (w) { w.innerHTML = cardHTML(u); fillCard(w.firstElementChild, u); fitCard(); } } if(T==="set" && u && !$("#pushEnable")){ $("#main").insertAdjacentHTML("beforeend",`<div class="card"><h3>Notifications</h3><p>Autorisez les notifications sur cet appareil. Les alertes à distance nécessitent encore la configuration sécurisée de la clé Push du serveur.</p><button id="pushEnable" data-act="enableNotifications">🔔 Activer les notifications</button></div>`); } }
 addEventListener("resize", fitCard);
 async function copyText(t) {
   try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(t); return true; } } catch (e) {}
@@ -589,36 +592,60 @@ render(); if (me()) voice();
 const sp = $("#splash"); let spDone = false;
 function endSplash() { if (spDone) return; spDone = true; sp.classList.add("glitch"); glitchSound(); setTimeout(() => { sp.classList.add("gone"); setTimeout(() => sp.remove(), 300); }, 900); }
 sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
-/* ===== Supabase : source de vérité partagée ===== */
+/* ===== Cloudflare : source de vérité partagée ===== */
 (async function connectTribuGbe() {
-  const SUPABASE_URL = "https://mraezuqyuwhnhefnqmuk.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_SfD9vP-dgiu49QEuWEbN1Q_032ARId1";
-  const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-  const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-  });
-  window.tribuSupabase = sb;
-  sb.auth.onAuthStateChange((event) => {
-    if (event === "PASSWORD_RECOVERY") { recovery = true; setTimeout(async () => { await refreshAndRender(); go("resetPw"); }, 0); return; }
-    if (event === "TOKEN_REFRESHED" || recovery) return;
-    setTimeout(() => refreshAndRender(), 0);
-  });
+  const API = "/api";
+  const authToken = () => localStorage.getItem("tribu_gbe_session") || "";
+  async function api(path, method="GET", body=null) {
+    const headers={"Content-Type":"application/json"}; if(authToken()) headers.Authorization="Bearer "+authToken();
+    const res=await fetch(API+path,{method,headers,body:body?JSON.stringify(body):undefined});
+    const json=await res.json().catch(()=>({error:"Réponse serveur invalide."}));
+    if(!res.ok) return {data:null,error:{message:json.error||"Erreur serveur."}};
+    return {data:json.data??json,error:null};
+  }
+  class Query {
+    constructor(table){this.table=table;this.action="select";this.values=null;this.filters=[];this.sort=null;this.columns="*";this.one=false;}
+    select(cols="*"){this.columns=cols;return this;}
+    order(column,opts={}){this.sort={column,ascending:opts.ascending!==false};return this;}
+    eq(column,value){this.filters.push([column,value]);return this;}
+    insert(values){this.action="insert";this.values=values;return this;}
+    update(values){this.action="update";this.values=values;return this;}
+    delete(){this.action="delete";return this;}
+    single(){this.one=true;return this.then(x=>({...x,data:Array.isArray(x.data)?x.data[0]||null:x.data}));}
+    async then(resolve,reject){try{const r=await api("/data/"+encodeURIComponent(this.table),"POST",{action:this.action,values:this.values,filters:this.filters,order:this.sort,columns:this.columns}); if(r.error) return resolve?resolve(r):r; const data=this.one&&Array.isArray(r.data)?r.data[0]||null:r.data; const out={data,error:null}; return resolve?resolve(out):out;}catch(e){const out={data:null,error:{message:e.message}};return reject?reject(e):out;}}
+  }
+  const sb={
+    auth:{
+      async signUp({email,password,options={}}){const r=await api("/auth/register","POST",{email,password,profile:options.data||{}});if(r.data?.token)localStorage.setItem("tribu_gbe_session",r.data.token);return {data:{user:r.data?.user||null,session:r.data?.token?{access_token:r.data.token}:null},error:r.error};},
+      async signInWithPassword({email,password}){const r=await api("/auth/login","POST",{email,password});if(r.data?.token)localStorage.setItem("tribu_gbe_session",r.data.token);return {data:{user:r.data?.user||null,session:r.data?.token?{access_token:r.data.token}:null},error:r.error};},
+      async getUser(){const r=await api("/auth/me");return {data:{user:r.data?.user||null},error:r.error};},
+      async signOut(){await api("/auth/logout","POST",{});localStorage.removeItem("tribu_gbe_session");return {error:null};},
+      async updateUser({password}){const r=await api("/auth/password","POST",{password});return {error:r.error};},
+      onAuthStateChange(){return {data:{subscription:{unsubscribe(){}}}};},
+      async resetPasswordForEmail(){return {error:{message:"La récupération doit être faite par un responsable autorisé."}};},
+      async resend(){return {error:{message:"La confirmation e-mail est désactivée."}};}
+    },
+    from(table){return new Query(table);},
+    async rpc(fn,args={}){return api("/rpc/"+encodeURIComponent(fn),"POST",args).then(r=>({data:r.data,error:r.error}));},
+    channel(){return {on(){return this;},subscribe(){return this;}};},removeChannel(){}
+  };
+  window.tribuCloudflare = {api};
   let realtimeChannel = null, managedSub = false, noticeShown = false, recovery = false, pendingEmail = "", resendAt = 0, authNotice = "";
   const dbError = (err, fallback) => {
-    console.error("Supabase:", err);
+    console.error("Cloudflare:", err);
     toast(err?.message || fallback || "Une erreur est survenue.", 5000);
   };
   const sha256 = async value => {
     const bytes = new TextEncoder().encode(value);
-    const digest = await crypto.subtle.digest("SHA-256", bytes);
-    return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2,"0")).join("");
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+    return btoa(String.fromCharCode(...digest)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
   };
   const currentUser = async () => (await sb.auth.getUser()).data.user;
   const fromProfile = (p, priv = {}) => ({
     id:p.user_id, name:p.full_name || "Membre", birth:p.birth_date || "", school:p.school || "",
     classe:p.class_name || "", phone:priv.phone || "", parent:priv.parent_phone || "",
     address:p.address || priv.neighborhood || "", group:p.parish_group || "", vil:p.village_id || "",
-    village:"", role:p.role || "cheminot", active:p.active !== false, surname:p.surname || "",
+    village:"", role:p.role || "cheminot", active:!!p.active, surname:p.surname || "",
     by:p.inviter_id || null, idc:p.membership_code || p.user_id, photo:p.avatar_url || "",
     l1:p.qr_link_1 || "", l2:p.qr_link_2 || "", editAllowed:!!p.edit_allowed,
     email:priv.email || "", gender:p.gender || "", decision:p.unit_decision || "", routierNotified:!!p.routier_notified_at
@@ -675,42 +702,31 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     try { await loadSharedData(); if (S.managedOk && !managedSub) { managedSub = true; subscribeRealtime(); } render(); checkRoutierNotice(); }
     catch (e) { dbError(e,"Impossible de synchroniser les données avec le serveur."); }
   }
-  function subscribeRealtime() {
-    if (realtimeChannel) sb.removeChannel(realtimeChannel);
-    const ch = sb.channel("tribu-gbe-live")
-      .on("postgres_changes",{event:"*",schema:"public",table:"announcements"},refreshAndRender)
-      .on("postgres_changes",{event:"*",schema:"public",table:"announcement_rsvps"},refreshAndRender)
-      .on("postgres_changes",{event:"*",schema:"public",table:"community_posts"},refreshAndRender)
-      .on("postgres_changes",{event:"*",schema:"public",table:"member_profiles"},refreshAndRender)
-      .on("postgres_changes",{event:"*",schema:"public",table:"villages"},refreshAndRender)
-    ;
-    if (managedSub) ch.on("postgres_changes",{event:"*",schema:"public",table:"managed_members"},refreshAndRender);
-    realtimeChannel = ch.subscribe();
-  }
+  function subscribeRealtime() { if (realtimeChannel) clearInterval(realtimeChannel); realtimeChannel = setInterval(refreshAndRender, 45000); }
 
   /* ===== Améliorations : inscription, connexion, mot de passe ===== */
-  const SITE_URL = "https://ziemartinkassoun19.github.io/tribu-gbe/";
-  const PIN_LEN = 5, toPw = pin => pin + "#Gbe2026";
+  const SITE_URL = location.origin + "/";
+  const PIN_LEN = 8, toPw = pin => pin;
   const authTabs = on => `<div class="tabs"><button class="${on === "auth" ? "" : "sec"}" data-act="go" data-t="auth">Connexion</button><button class="${on === "reg" ? "" : "sec"}" data-act="go" data-t="reg">Inscription</button></div>`;
   PARENT.regDone = "profile"; PARENT.forgot = "profile"; PARENT.resetPw = "profile";
 
-  V.auth = () => authTabs("auth") + `<h2>Connexion</h2>${authNotice ? `<div class="card" style="border-color:var(--ac)"><p style="color:var(--tx)"><strong>✅ ${authNotice}</strong></p></div>` : ""}<div class="card"><p>J'ai déjà un compte.</p><label>Adresse e-mail</label><input id="lp" type="email" autocomplete="email" placeholder="nom@exemple.com" value="${esc(pendingEmail)}"><label>Mot de passe</label><input id="lpin" type="password" autocomplete="current-password"><div class="err" id="err"></div><div id="resendBox"></div><button data-act="login" style="margin:0">Se connecter</button><button class="link" data-act="go" data-t="forgot">Mot de passe oublié ?</button></div><div class="card"><p>Pas encore de compte ? Il te faut un code d'invitation remis par ton Safouin.</p><button class="sec" data-act="go" data-t="reg" style="margin:0">Je m'inscris</button></div>`;
+  V.auth = () => authTabs("auth") + `<h2>Connexion</h2>${authNotice ? `<div class="card" style="border-color:var(--ac)"><p style="color:var(--tx)"><strong>✅ ${authNotice}</strong></p></div>` : ""}<div class="card"><p>J'ai déjà un compte.</p><label>Identifiant (e-mail ou nom d’utilisateur)</label><input id="lp" type="text" autocomplete="username" placeholder="Votre identifiant" value="${esc(pendingEmail)}"><label>Mot de passe</label><input id="lpin" type="password" autocomplete="current-password"><div class="err" id="err"></div><div id="resendBox"></div><button data-act="login" style="margin:0">Se connecter</button><button class="link" data-act="go" data-t="forgot">Besoin de récupérer votre compte ?</button></div><div class="card"><p>Pas encore de compte ? Il te faut un code d'invitation remis par ton Safouin.</p><button class="sec" data-act="go" data-t="reg" style="margin:0">Je m'inscris</button></div>`;
 
   V.reg = () => authTabs("reg") + `<div class="${regLit ? "lit" : ""}" id="stg"><div class="stage"><div class="halo"></div><svg class="hat" viewBox="0 0 200 120"><ellipse cx="100" cy="88" rx="96" ry="22" fill="#7a5a30"/><path d="M52 84Q54 26 100 22Q146 26 148 84Z" fill="#a07c4a"/><path d="M52 74Q100 90 148 74L148 84Q100 100 52 84Z" fill="#3a2a14"/></svg><svg class="fl" data-act="lit" role="button" aria-label="Fleur de lys" viewBox="0 0 100 140">${FL}</svg></div><p class="hint">Touchez la fleur de lys pour commencer</p></div>
     <div id="regf" class="${regLit ? "on" : ""}"><h2>Inscription</h2><div class="card"><p>Cette page sert à créer un <strong>nouveau compte</strong>. Tu en as déjà un ? <button class="link" data-act="go" data-t="auth">Va sur « Connexion »</button></p>
-    <label>Nom complet *</label><input id="r_name"><label>Adresse e-mail *</label><input id="r_email" type="email" autocomplete="email">
+    <label>Nom complet *</label><input id="r_name"><label>Identifiant de connexion *</label><input id="r_email" type="text" autocomplete="username" placeholder="E-mail ou nom d’utilisateur">
     <label>Sexe *</label><select id="r_gender"><option value="">— Choisir —</option><option value="M">Garçon</option><option value="F">Fille</option></select>
     <label>Date de naissance *</label><input id="r_birth" type="date" max="${today()}"><label>École *</label><input id="r_school"><label>Classe *</label><input id="r_classe">
     <label>Téléphone * (avec indicatif, ex. 225…)</label><input id="r_phone" type="tel"><label>Contact d'un parent *</label><input id="r_parent" type="tel"><label>Quartier *</label><input id="r_addr">
     <label>Paroisse / Groupe</label><input id="r_group" placeholder="Votre paroisse ou groupe scout"><label>Village *</label><select id="r_vil"><option value="">— Choisir votre village —</option>${S.villages.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join("")}</select>
-    <label>Mot de passe * (${PIN_LEN} caractères)</label><input id="r_pin" type="password" maxlength="${PIN_LEN}" autocomplete="new-password"><label>Confirmer le mot de passe *</label><input id="r_pin2" type="password" maxlength="${PIN_LEN}" autocomplete="new-password"><label>Code d'invitation remis par le Safouin *</label><input id="r_code" autocapitalize="characters">
+    <label>Mot de passe * (minimum ${PIN_LEN} caractères)</label><input id="r_pin" type="password" minlength="${PIN_LEN}" autocomplete="new-password"><label>Confirmer le mot de passe *</label><input id="r_pin2" type="password" minlength="${PIN_LEN}" autocomplete="new-password"><label>Code d'invitation remis par le Safouin *</label><input id="r_code" autocapitalize="characters">
     <div class="err" id="err"></div><button data-act="register" style="margin:0">Créer mon compte</button>${backBtn()}</div></div>`;
 
-  V.regDone = () => `<div class="card" style="text-align:center"><div style="font-size:2.6rem">📧</div><h2>Inscription réussie !</h2><p style="color:var(--tx);font-weight:600">Vérifiez votre e-mail.</p><p>Un lien de confirmation a été envoyé à <strong>${esc(pendingEmail)}</strong>. Cliquez dessus pour activer votre compte, puis revenez vous connecter.</p><p>Rien reçu ? Regardez dans les courriers indésirables (spam).</p><div class="err" id="err"></div><button data-act="resend">Renvoyer le lien de confirmation</button><button class="sec" data-act="go" data-t="auth">J'ai confirmé : me connecter</button></div>`;
+  V.regDone = () => `<div class="card" style="text-align:center"><div style="font-size:2.6rem">✅</div><h2>Compte créé !</h2><p>Votre compte est prêt. Vous pouvez maintenant vous connecter avec votre identifiant et votre mot de passe.</p><button data-act="go" data-t="auth">Me connecter</button></div>`;
 
-  V.forgot = () => authTabs("auth") + `<h2>Mot de passe oublié</h2><div class="card"><p>Saisissez l'adresse e-mail de votre compte. Nous vous envoyons un lien pour choisir un nouveau mot de passe de ${PIN_LEN} caractères.</p><label>Adresse e-mail</label><input id="fp_email" type="email" autocomplete="email" value="${esc(pendingEmail)}"><div class="err" id="err"></div><button data-act="sendReset" style="margin:0">Envoyer le lien</button>${backBtn()}</div>`;
-
-  V.resetPw = () => `<h2>Nouveau mot de passe</h2><div class="card"><p>Choisissez un mot de passe de ${PIN_LEN} caractères.</p><label>Nouveau mot de passe</label><input id="np1" type="password" maxlength="${PIN_LEN}" autocomplete="new-password"><label>Confirmer</label><input id="np2" type="password" maxlength="${PIN_LEN}" autocomplete="new-password"><div class="err" id="err"></div><button data-act="savePw" style="margin:0">Enregistrer</button></div>`;
+  V.forgot = () => authTabs("auth") + `<h2>Récupération du compte</h2><div class="card"><p>Saisissez l’identifiant ou le numéro de téléphone associé à votre compte. Votre demande sera transmise aux responsables autorisés de votre village. Aucun e-mail n’est envoyé.</p><label>Identifiant ou téléphone</label><input id="recoveryIdentifier" autocomplete="username" placeholder="E-mail, nom d’utilisateur ou téléphone"><div class="err" id="recoveryErr"></div><button data-act="sendReset">Transmettre ma demande</button><button class="sec" data-act="go" data-t="resetPw">J’ai déjà reçu un code du responsable</button><button class="sec" data-act="go" data-t="auth">Retour à la connexion</button></div>`;
+  V.resetPw = () => `<h2>Réinitialiser mon mot de passe</h2><div class="card"><p>Entrez le code temporaire remis par votre Safouin ou le Fondateur. Ce code expire après 30 minutes et ne peut être utilisé qu’une fois.</p><label>Code temporaire</label><input id="recoveryCode" autocapitalize="characters" placeholder="GBR-…"><label>Nouveau mot de passe (8 caractères minimum)</label><input id="np1" type="password" minlength="8" autocomplete="new-password"><label>Confirmer le nouveau mot de passe</label><input id="np2" type="password" minlength="8" autocomplete="new-password"><div class="err" id="err"></div><button data-act="savePw" style="margin:0">Valider le nouveau mot de passe</button><button class="sec" data-act="go" data-t="auth">Retour à la connexion</button></div>`;
+  V.recoveryAdmin = () => `<h2>Récupération des comptes</h2><div class="card"><p>Les demandes de votre village apparaissent ici. Vérifiez l’identité du membre avant de générer un code. Remettez le code directement à la personne, sans le publier.</p><button data-act="loadRecoveryRequests">Actualiser les demandes</button><div id="recoveryList"><p>Appuyez sur Actualiser pour consulter les demandes.</p></div></div>${backBtn()}`;
 
   V.comm = () => {
     const u=me();
@@ -876,10 +892,8 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     const email=$("#lp").value.trim().toLowerCase(), pin=$("#lpin").value; pendingEmail=email;
     if(!email||!pin){$("#err").textContent="Saisissez votre adresse e-mail et votre mot de passe.";return;}
     let {error}=await sb.auth.signInWithPassword({email,password:toPw(pin)});
-    if(error&&/invalid login/i.test(error.message)&&pin.length>PIN_LEN){ error=(await sb.auth.signInWithPassword({email,password:pin})).error; }
     if(error){
-      if(/not confirmed/i.test(error.message)) return showUnconfirmed();
-      $("#err").textContent=/invalid login/i.test(error.message)?"E-mail ou mot de passe incorrect. Si vous venez de vous inscrire, confirmez d'abord votre e-mail. Pas encore de compte ? Utilisez « Inscription ».":error.message;
+      $("#err").textContent=/invalid login/i.test(error.message)?"Identifiant ou mot de passe incorrect. Pas encore de compte ? Utilisez « Inscription ».":error.message;
       return;
     }
     recovery=false; authNotice=""; await refreshAndRender();
@@ -891,9 +905,9 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     const d={name:g("name"),email:g("email").toLowerCase(),gender:g("gender"),birth:g("birth"),school:g("school"),classe:g("classe"),phone:g("phone"),parent:g("parent"),address:g("addr"),group:g("group"),password:g("pin"),password2:g("pin2"),code:g("code").toUpperCase().replace(/\s+/g,"")}, village=g("vil");
     const err=t=>{$("#err").textContent=t;};
     if(Object.entries(d).some(([k,v])=>k!=="password2"&&!v)||!village)return err("Merci de remplir tous les champs obligatoires.");
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email))return err("Adresse e-mail invalide.");
+    if(d.email.length<3)return err("Saisissez un identifiant valide (adresse e-mail ou nom d’utilisateur).");
     if(!["M","F"].includes(d.gender))return err("Indiquez si vous êtes un garçon ou une fille.");
-    if(d.password.length!==PIN_LEN)return err(`Le mot de passe doit contenir exactement ${PIN_LEN} caractères.`);
+    if(d.password.length<PIN_LEN)return err(`Le mot de passe doit contenir au moins ${PIN_LEN} caractères.`);
     if(d.password!==d.password2)return err("Les deux mots de passe ne correspondent pas.");
     if(normPhone(d.phone).length<8)return err("Numéro de téléphone invalide.");
     if(age(d.birth)<5||age(d.birth)>99)return err("Date de naissance invalide.");
@@ -902,34 +916,31 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     if(error){err(/already registered/i.test(error.message)?"Cette adresse e-mail a déjà un compte. Allez dans « Connexion » (ou « Mot de passe oublié »).":error.message);return;}
     pendingEmail=d.email;
     if(data.user&&Array.isArray(data.user.identities)&&data.user.identities.length===0)return err("Cette adresse e-mail a déjà un compte. Allez dans « Connexion » (ou « Mot de passe oublié »).");
-    if(data.session){
-      await sb.auth.signOut(); S.cur=null; S.members=[]; S.posts=[]; S.codes=[]; S.managed=[];
-      authNotice="Inscription réussie ! Connectez-vous maintenant avec votre adresse e-mail et votre mot de passe.";
-      hist=[]; go("auth"); toast("Inscription réussie. Connectez-vous.",5000);
-    } else { resendAt=Date.now(); hist=[]; go("regDone"); toast("Inscription réussie, vérifiez votre e-mail.",6500); }
+    if(data.session){ await sb.auth.signOut(); S.cur=null; S.members=[]; S.posts=[]; S.codes=[]; S.managed=[]; }
+    authNotice="Compte créé avec succès. Vous pouvez vous connecter."; hist=[]; go("auth"); toast("Compte créé. Connectez-vous.",5000);
   };
-  A.resend = async () => {
-    if(!pendingEmail){go("auth");return toast("Saisissez d'abord votre adresse e-mail.");}
-    const wait=Math.ceil((resendAt+60000-Date.now())/1000);
-    if(wait>0)return toast(`Patientez ${wait} s avant de renvoyer le lien.`);
-    const {error}=await sb.auth.resend({type:"signup",email:pendingEmail,options:{emailRedirectTo:SITE_URL}});
-    if(error)return toast(/rate|seconds|too many/i.test(error.message)?"Trop de demandes. Réessayez dans quelques minutes.":error.message,5000);
-    resendAt=Date.now(); toast("Lien de confirmation renvoyé. Vérifiez aussi vos spams.",5000);
-  };
+  A.resend = async () => toast("La confirmation par e-mail n’est pas utilisée sur cette version Cloudflare.");
   A.sendReset = async () => {
-    const email=$("#fp_email").value.trim().toLowerCase(); pendingEmail=email;
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){$("#err").textContent="Saisissez une adresse e-mail valide.";return;}
-    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:SITE_URL});
-    if(error){$("#err").textContent=/rate|seconds|too many/i.test(error.message)?"Trop de demandes. Réessayez dans quelques minutes.":error.message;return;}
-    $("#err").style.color="var(--ac)"; $("#err").textContent="Si un compte existe avec cette adresse, un e-mail avec le lien vient d'être envoyé.";
+    const identifier=$("#recoveryIdentifier")?.value.trim()||"";const box=$("#recoveryErr");if(identifier.length<3){if(box)box.textContent="Saisissez votre identifiant ou votre téléphone.";return;}
+    const r=await api("/auth/recovery/request","POST",{identifier});if(r.error){if(box)box.textContent=r.error.message;return;}
+    if(box)box.textContent="Demande transmise. Un responsable autorisé doit vérifier votre identité puis vous remettre un code temporaire.";toast("Demande de récupération transmise.",5000);
   };
+  A.loadRecoveryRequests = async () => {
+    if(!staff())return toast("Accès réservé aux responsables.");const box=$("#recoveryList");if(box)box.innerHTML="<p>Chargement…</p>";
+    const r=await api("/auth/recovery/requests");if(r.error){if(box)box.textContent=r.error.message;return;}const rows=r.data||[];if(!box)return;
+    box.innerHTML=rows.length?rows.map(x=>`<div class="item"><strong>${esc(x.full_name)}</strong><p>${esc(x.village||"Village non renseigné")} · ${new Date(x.created_at.replace(" ","T")+"Z").toLocaleString("fr-FR")} · ${x.status==="pending"?"En attente":"Code déjà émis"}</p>${x.status==="pending"?`<div class="grid"><button data-act="approveRecovery" data-p="${x.id}">Vérifier et générer le code</button><button class="dg" data-act="rejectRecovery" data-p="${x.id}">Refuser</button></div>`:"<p>Un code a déjà été émis pour cette demande.</p>"}</div>`).join(""):"<p>Aucune demande en attente.</p>";
+  };
+  A.approveRecovery = async d => {
+    if(!staff())return toast("Accès réservé.");if(!confirm("Avez-vous vérifié l’identité du membre ? Le code ne sera affiché qu’une seule fois."))return;
+    const r=await api("/auth/recovery/approve","POST",{requestId:d.p});if(r.error)return toast(r.error.message,5000);const code=r.data.code;
+    $("#modal").innerHTML=`<div class="box"><h3>Code de récupération créé</h3><p>Remettez ce code directement au membre après vérification de son identité. Il expire dans 30 minutes et ne s’affiche plus ensuite.</p><input id="recoveryCodeCopy" readonly value="${esc(code)}" style="font-family:ui-monospace,monospace;font-size:1.15rem;text-align:center;letter-spacing:.08em"><button data-act="copyRecoveryCode">Copier le code</button><button class="sec" data-act="mNo">Fermer</button></div>`;$("#modal").style.display="flex";await A.loadRecoveryRequests();
+  };
+  A.rejectRecovery = async d => {if(!staff())return;if(!confirm("Refuser cette demande de récupération ?"))return;const r=await api("/auth/recovery/reject","POST",{requestId:d.p});if(r.error)return toast(r.error.message);await A.loadRecoveryRequests();};
+  A.copyRecoveryCode = async () => {const v=$("#recoveryCodeCopy")?.value||"";if(await copyText(v))toast("Code copié. Remettez-le au membre de manière confidentielle.");else toast("Copie impossible.");};
   A.savePw = async () => {
-    const p1=$("#np1").value,p2=$("#np2").value,err=t=>{$("#err").textContent=t;};
-    if(p1.length!==PIN_LEN)return err(`Le mot de passe doit contenir exactement ${PIN_LEN} caractères.`);
-    if(p1!==p2)return err("Les deux mots de passe ne correspondent pas.");
-    const {error}=await sb.auth.updateUser({password:toPw(p1)});
-    if(error)return err(/different from the old/i.test(error.message)?"Choisissez un mot de passe différent de l'ancien.":error.message);
-    recovery=false; await refreshAndRender(); hist=[]; go("home"); toast("Mot de passe modifié. Vous êtes connecté.",5000);
+    const code=$("#recoveryCode")?.value.trim().toUpperCase()||"",p1=$("#np1").value,p2=$("#np2").value,err=t=>$("#err").textContent=t;
+    if(!code)return err("Saisissez le code temporaire remis par le responsable.");if(p1.length<8)return err("Le mot de passe doit contenir au moins 8 caractères.");if(p1!==p2)return err("Les deux mots de passe ne correspondent pas.");
+    const r=await api("/auth/recovery/complete","POST",{code,password:p1});if(r.error)return err(r.error.message);localStorage.removeItem("tribu_gbe_session");recovery=false;authNotice="Mot de passe réinitialisé. Connectez-vous avec votre nouveau mot de passe.";hist=[];go("auth");toast("Mot de passe réinitialisé.",5000);
   };
   A.logout = async () => {const {error}=await sb.auth.signOut();if(error)return dbError(error);S.cur=null;S.members=[];S.posts=[];hist=[];await refreshAndRender();go("home");};
   A.newCode = async d => {
@@ -975,7 +986,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
   A.setRole = async d => {return (d.r==="safouin"?A.promouvoirSafouin:A.retrograderSafouin)(d);};
   A.allowEdit = async d => {if(!staff())return toast("Action réservée.");const {error}=await sb.from("member_profiles").update({edit_allowed:true}).eq("user_id",d.p);if(error)return dbError(error);await refreshAndRender();toast("Modification autorisée.");};
   A.newVillage = async () => {if(!isS())return toast("Action réservée au Safhouin.");const name=$("#vn").value.trim().toUpperCase();if(!name)return toast("Donnez un nom au village.");const {error}=await sb.from("villages").insert({id:"v_"+crypto.randomUUID(),name,color:$("#vc").value});if(error)return dbError(error);await refreshAndRender();render();};
-  A.backup = () => toast("Les données de la Tribu sont maintenant sauvegardées sur Supabase. Les documents de rédaction restent locaux à cet appareil.");
+  A.backup = () => toast("Les données de la Tribu sont maintenant enregistrées dans Cloudflare D1. Les documents de rédaction restent locaux à cet appareil.");
   A.restore = () => toast("La restauration locale est désactivée pour éviter d'écraser les données partagées.");
 
   editMember = function(m) {
@@ -1013,13 +1024,12 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
   await refreshAndRender();
   subscribeRealtime();
   const urlInfo = location.hash + location.search;
-  if (recovery || /type=recovery/.test(urlInfo)) { recovery = true; go("resetPw"); }
-  else if (/error_code=otp_expired|error=access_denied/.test(urlInfo)) { go("auth"); toast("Ce lien a expiré ou a déjà été utilisé. Connectez-vous : si votre e-mail n'est pas confirmé, vous pourrez renvoyer le lien ; sinon utilisez « Mot de passe oublié ».", 9000); }
-  else if (/type=signup|type=email/.test(urlInfo) && me()) toast("Adresse e-mail confirmée. Bienvenue !", 5000);
+  if (/type=recovery/.test(urlInfo)) { go("forgot"); toast("La récupération se fait avec un code remis par un responsable autorisé.",7000); }
+  else if (/error_code=otp_expired|error=access_denied/.test(urlInfo)) { go("auth"); toast("Lien expiré ou indisponible. Utilisez la récupération par responsable.", 9000); }
   if (urlInfo) history.replaceState(null, "", location.pathname);
   if(me()&&!recovery)voice();
-  console.info("TRIBU GBÊ : Supabase connecté, synchronisation temps réel active.");
-})().catch(err=>{console.error("Initialisation Supabase impossible",err);toast("Connexion au serveur impossible. Vérifiez votre connexion Internet.",6000);});
+  console.info("TRIBU GBÊ : Cloudflare connecté, synchronisation temps réel active.");
+})().catch(err=>{console.error("Initialisation Cloudflare impossible",err);toast("Connexion au serveur impossible. Vérifiez votre connexion Internet.",6000);});
 
 
 /* ===== Bouton Slogan (menu hamburger) ===== */
@@ -1112,6 +1122,21 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     const ref = dp.querySelector('[data-act="logout"]') || dp.querySelector('[data-act="contact"]');
     if (ref) ref.insertAdjacentHTML("beforebegin", btn); else dp.insertAdjacentHTML("beforeend", btn);
   };
+
+  A.enableNotifications = async () => {
+    if(!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return toast("Les notifications Push ne sont pas prises en charge par ce navigateur.");
+    try {
+      const p=await Notification.requestPermission(); if(p!=="granted") return toast("Autorisez les notifications dans les paramètres du navigateur.");
+      const key=await api("/push/key"); if(key.error || !key.data?.publicKey) return toast("Le service Push n'est pas encore configuré sur le serveur.",5000);
+      const reg=await navigator.serviceWorker.ready;
+      const b64=key.data.publicKey.replace(/-/g,"+").replace(/_/g,"/"); const raw=Uint8Array.from(atob(b64+"===".slice((b64.length+3)%4)),c=>c.charCodeAt(0));
+      let sub=await reg.pushManager.getSubscription(); if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:raw});
+      const saved=await api("/push/subscribe","POST",sub.toJSON()); if(saved.error) throw new Error(saved.error.message);
+      toast("Notifications activées sur cet appareil. Vous recevrez les nouvelles annonces et publications.",5500);
+    } catch(e){toast("Impossible d'activer les notifications : "+e.message,5000);}
+  };
+  if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(e=>console.warn("PWA:",e));
+  setInterval(()=>{ if(document.visibilityState==="visible" && S.cur) refreshAndRender(); },45000);
 })();
 
 /* ===== Rôles v2 : Safhouin fondateur / adjoint, Safouin, Cheminot ===== */
