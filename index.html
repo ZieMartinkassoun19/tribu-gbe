@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#ea580c">
-<link rel="manifest" href="/manifest.webmanifest">
+<link rel="manifest" href="./manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Tribu Gbê</title>
@@ -594,7 +594,7 @@ function endSplash() { if (spDone) return; spDone = true; sp.classList.add("glit
 sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
 /* ===== Cloudflare : source de vérité partagée ===== */
 (async function connectTribuGbe() {
-  const API = "/api";
+  const API = "https://tribu-gbe.tribu-gbe.workers.dev/api";
   const authToken = () => localStorage.getItem("tribu_gbe_session") || "";
   async function api(path, method="GET", body=null) {
     const headers={"Content-Type":"application/json"}; if(authToken()) headers.Authorization="Bearer "+authToken();
@@ -1135,7 +1135,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
       toast("Notifications activées sur cet appareil. Vous recevrez les nouvelles annonces et publications.",5500);
     } catch(e){toast("Impossible d'activer les notifications : "+e.message,5000);}
   };
-  if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(e=>console.warn("PWA:",e));
+  if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(e=>console.warn("PWA:",e));
   setInterval(()=>{ if(document.visibilityState==="visible" && S.cur) refreshAndRender(); },45000);
 })();
 
