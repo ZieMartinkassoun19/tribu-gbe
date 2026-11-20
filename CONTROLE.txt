@@ -1,12 +1,15 @@
 TRIBU GBÊ — RAPPORT DE CONTRÔLE
 
-- Frontend JS syntax: PASS
-- Worker JS syntax: PASS
-- manifest.webmanifest JSON: PASS
-- PNG icons: PASS
-- 45-second auto-rerender timers removed from index.html: PASS
-- Cloudflare Worker version 9 deployed: CONFIRMED through Cloudflare API
-- D1 binding DB preserved: CONFIRMED (existing database tribu-gbe)
-- Recovery API routes deployed: CONFIRMED in uploaded Worker source
-- End-to-end browser signup/login/recovery: NOT YET EXECUTED; requires the published GitHub Pages frontend and a valid invite/setup code.
-- Public HTTP health probe: unavailable from build environment due DNS/network restriction.
+- Interface : formulaire d’inscription unique avec champ « Clé d’accès ».
+- Inscription spéciale : le Worker reconnaît la clé initiale stockée dans setup_codes et attribue automatiquement le rôle founder si aucun fondateur n’existe.
+- Inscriptions suivantes : le Worker vérifie les clés ordinaires dans invite_codes et attribue le rôle associé.
+- Compatibilité : le Worker accepte access_key et l’ancien champ invite_code.
+- Mot de passe : minimum 8 caractères côté interface et serveur.
+- Clés : une utilisation par clé ; refus des clés invalides ou déjà consommées.
+- Base D1 existante : conservée, binding DB inchangé ; aucune suppression ou recréation.
+- Interface HTML embarquée dans worker.js : synchronisée avec index.html.
+- Cache PWA : versionné en tribu-gbe-v3.
+- JavaScript Worker et scripts HTML : contrôlés syntaxiquement.
+- Manifeste et icônes : contrôlés.
+
+À TESTER APRÈS PUBLICATION : création réelle du premier compte, connexion, génération d’une clé ordinaire et création d’un second compte. Ces tests navigateur n’ont pas été exécutés depuis cet environnement.

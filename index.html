@@ -253,7 +253,7 @@ const rb = m => `<span class="badge">${RL[m.role]}</span>`;
 /* ===== Navigation ===== */
 let T = "home", P = null, hist = [], regLit = false;
 const PARENT = { annDetail: "ann", auth: "profile", reg: "profile" }, NAVS = ["home", "ann", "comm", "profile", "set"];
-function go(t, p, isBack) { if (!isBack && (t !== T || p !== P)) hist.push([T, P]); if (t === "reg" && T !== "reg") regLit = false; T = t; P = p; render(); $("#main").scrollTop = 0; }
+function go(t, p, isBack) { if (!isBack && (t !== T || p !== P)) hist.push([T, P]); if (t === "reg") regLit = true; T = t; P = p; render(); $("#main").scrollTop = 0; }
 function back() { const h = hist.pop() || ["home", null]; go(h[0], h[1], true); }
 function render() {
   $("#main").innerHTML = (V[T] || V.home)();
@@ -313,21 +313,19 @@ const V = {
       <button class="sec" data-act="logout">Se déconnecter</button>`;
   },
   auth() {
-    return `<h2>Connexion</h2><div class="card"><label>Téléphone</label><input id="lp" type="tel" autocomplete="tel"><label>Mot de passe</label><input id="lpin" type="password" autocomplete="current-password"><div class="err" id="err"></div>
+    return `<h2>Connexion</h2><div class="card"><label>Identifiant (e-mail ou nom d’utilisateur)</label><input id="lp" type="text" autocomplete="username"><label>Mot de passe</label><input id="lpin" type="password" autocomplete="current-password"><div class="err" id="err"></div>
       <button data-act="login" style="margin:0">Se connecter</button><button class="link" data-act="go" data-t="reg">Créer un compte</button></div>`;
   },
   reg() {
-    return `<div class="${regLit ? "lit" : ""}" id="stg"><div class="stage"><div class="halo"></div>
-      <svg class="hat" viewBox="0 0 200 120"><ellipse cx="100" cy="88" rx="96" ry="22" fill="#7a5a30"/><path d="M52 84Q54 26 100 22Q146 26 148 84Z" fill="#a07c4a"/><path d="M52 74Q100 90 148 74L148 84Q100 100 52 84Z" fill="#3a2a14"/></svg>
-      <svg class="fl" data-act="lit" role="button" aria-label="Fleur de lys" viewBox="0 0 100 140">${FL}</svg></div>
-      <p class="hint">Touchez la fleur de lys pour commencer</p></div>
-      <div id="regf" class="${regLit ? "on" : ""}"><h2>Inscription</h2><div class="card">
-      <label>Nom complet *</label><input id="r_name"><label>Date de naissance *</label><input id="r_birth" type="date" max="${today()}">
-      <label>École *</label><input id="r_school"><label>Classe *</label><input id="r_classe"><label>Téléphone * (avec indicatif, ex. 225…)</label><input id="r_phone" type="tel"><label>Contact d'un parent *</label><input id="r_parent" type="tel">
-      <label>Quartier *</label><input id="r_addr"><label>Paroisse / Groupe</label><input id="r_group" placeholder="Votre paroisse ou groupe scout"><label>Village (génération) *</label><select id="r_vil"><option value="">— Choisir votre village —</option>${S.villages.map(v => `<option value="${v.id}">${esc(v.name)}</option>`).join("")}</select>
-      <label>Mot de passe *</label><input id="r_pin" type="password" autocomplete="new-password">
-      <label>Code d'accès remis par le Safouin *</label><input id="r_code" autocapitalize="characters">
-      <div class="err" id="err"></div><button data-act="register" style="margin:0">Créer mon compte</button>${backBtn()}</div></div>`;
+    return `<h2>Créer un compte</h2><div class="card"><p>Renseignez vos informations et votre clé d’accès. Le système attribuera automatiquement les autorisations correspondant à cette clé. Vous avez déjà un compte ? <button class="link" data-act="go" data-t="auth">Connectez-vous ici</button></p>
+      <label>Nom complet *</label><input id="r_name"><label>Identifiant de connexion *</label><input id="r_email" type="text" autocomplete="username" placeholder="E-mail ou nom d’utilisateur">
+      <label>Sexe *</label><select id="r_gender"><option value="">— Choisir —</option><option value="M">Garçon</option><option value="F">Fille</option></select>
+      <label>Date de naissance *</label><input id="r_birth" type="date" max="${today()}"><label>École *</label><input id="r_school"><label>Classe *</label><input id="r_classe">
+      <label>Téléphone * (avec indicatif, ex. 225…)</label><input id="r_phone" type="tel"><label>Contact d’un parent *</label><input id="r_parent" type="tel"><label>Quartier *</label><input id="r_addr">
+      <label>Paroisse / Groupe</label><input id="r_group"><label>Village *</label><select id="r_vil"><option value="">— Choisir votre village —</option>${S.villages.map(v => `<option value="${v.id}">${esc(v.name)}</option>`).join("")}</select>
+      <label>Mot de passe * (8 caractères minimum)</label><input id="r_pin" type="password" minlength="8"><label>Confirmer le mot de passe *</label><input id="r_pin2" type="password" minlength="8">
+      <label>Clé d’accès *</label><input id="r_code" autocapitalize="characters" autocomplete="off" placeholder="Saisir votre clé d’accès">
+      <div class="err" id="err"></div><button data-act="register" style="margin:0">Créer mon compte</button>${backBtn()}</div>`;
   },
   members() {
     return `<h2>Cheminots</h2><input placeholder="🔍 Rechercher…" oninput="filterMembers(this.value)"><div class="card" id="ml">${memberList("")}</div>${backBtn()}`;
@@ -335,7 +333,7 @@ const V = {
   resp() {
     const l = S.members.filter(m => m.role === "safouin");
     return `<h2>Safouins (${l.length})</h2><div class="card">${l.map(m => `<div class="item row" data-act="go" data-t="member" data-p="${m.id}"><span>${esc(displayName(m))} ${m.active ? "" : '<span class="badge">bloqué</span>'}</span>›</div>`).join("") || "<p>Aucun Safouin. Générez un code Safouin et remettez-le à la personne.</p>"}</div>
-      <button data-act="newCode" data-r="safouin">+ Générer un code Safouin</button>${backBtn()}`;
+      <button data-act="newCode" data-r="safouin">+ Générer une clé d’accès Safouin</button>${backBtn()}`;
   },
   member() {
     const m = S.members.find(x => x.id === P); if (!m) return V.members();
@@ -352,7 +350,7 @@ const V = {
     const l = S.codes.filter(c => isS() || c.by === S.cur);
     return `<h2>Codes et mots de passe générés</h2><div class="card"><p>Les codes restent masqués jusqu'à l'ouverture de cette rubrique. Utilisez « Copier » pour les transmettre à la personne concernée.</p>
       <button class="sec" data-act="toggleCodes">🔐 Afficher / masquer les codes générés (${l.length})</button><div id="codesList" hidden>${l.map(c => `<div class="item" style="cursor:default"><div class="row"><span class="code">${esc(c.code)}</span><button style="width:auto;margin:0;padding:7px 10px" data-act="copyCode" data-code="${esc(c.code)}">Copier</button></div><p>${c.used ? "Utilisé par " + esc(nm(c.used)) : "Disponible"} · état : ${c.role==="safouin"?"Safouin":"Cheminot"} · généré par ${esc(nm(c.by))}</p></div>`).join("") || "<p>Aucun code.</p>"}</div>
-      <button data-act="newCode" data-r="cheminot">+ Générer un code Membre</button>${isS() ? `<button class="sec" data-act="newCode" data-r="safouin">+ Générer un code Safouin</button>` : ""}</div>${backBtn()}`;
+      <button data-act="newCode" data-r="cheminot">+ Générer une clé d’accès membre</button>${isS() ? `<button class="sec" data-act="newCode" data-r="safouin">+ Générer une clé d’accès Safouin</button>` : ""}</div>${backBtn()}`;
   },
   trace() {
     const l = isS() ? S.members.filter(m => m.role !== "cheminot") : [me()];
@@ -374,13 +372,13 @@ const V = {
   about() {
     return `<h2>À propos</h2><div class="card"><h3>Bienvenue dans la Tribu Gbê</h3><p>Tribu Gbê est l'application de notre grande famille. Elle te permet de suivre les activités, d'échanger avec les autres et d'avoir ta carte de membre. Notre devise : Foi · Défi · Unité.</p>
       <h3 style="margin-top:12px">Comment ça marche</h3>
-      <p><strong>1. T'inscrire.</strong> Tu reçois un code d'invitation personnel. Il ne marche qu'une seule fois. Dans « Profil », touche « Créer un compte », puis touche la fleur de lys sur le chapeau : elle s'illumine et le formulaire apparaît. Remplis tes informations, choisis ton village, crée ton mot de passe (5 caractères) et saisis ton code. Ensuite, tu arrives sur « Connexion » : entre ton adresse e-mail et ton mot de passe pour accéder à l'application.</p>
+      <p><strong>1. Créer ton compte.</strong> Une clé d’accès personnelle est nécessaire. Ouvre « Inscription », remplis le formulaire et saisis ta clé d’accès. Le système reconnaît automatiquement les droits associés à cette clé. Elle ne peut être utilisée qu’une seule fois. Choisis un mot de passe d’au moins 8 caractères, puis connecte-toi avec ton identifiant et ton mot de passe.</p>
       <p><strong>2. Les cinq villages.</strong> GRANITE, ALBITES, AIGUILLES, QUARTZITES et AMPHIBOLITES. Tu choisis le tien à l'inscription : il apparaît sur ta carte avec le logo de la Tribu.</p>
       <p><strong>3. Te connecter.</strong> Utilise ton adresse e-mail et ton mot de passe. Si tu as oublié ton mot de passe, touche « Mot de passe oublié ».</p>
       <p><strong>4. Annonces.</strong> Retrouve les activités à venir (date, heure, lieu) et touche « Je serai présent » pour confirmer ta venue. Tu peux annuler à tout moment.</p>
       <p><strong>5. Communauté.</strong> Partage un message avec tout le monde et cherche un autre membre par son nom.</p>
       <p><strong>6. Ta carte de membre.</strong> Dans « Profil », ajoute ta photo. Tu peux aussi saisir jusqu'à deux liens (réseau social, page, etc.) : ils sont enregistrés dans le code QR, qui les ouvre quand on le scanne. Sans lien, le code QR reste vide. La carte porte aussi ton code-barres et ton ID. Touche « Télécharger ma carte » pour l'obtenir en image.</p>
-      <p><strong>7. Modifier tes informations.</strong> Pour corriger ton profil, demande l'autorisation à la personne qui t'a invité.</p>
+      <p><strong>7. Modifier tes informations.</strong> Pour corriger ton profil, demande l'autorisation à le responsable qui gère ton compte.</p>
       <p><strong>8. Réglages.</strong> Choisis le thème clair ou sombre et sauvegarde tes données. Elles sont enregistrées sur ton appareil.</p>
       <p><strong>9. Compte bloqué.</strong> Si ton compte est bloqué, tu ne peux plus te connecter jusqu'à son déblocage.</p>
       <p style="margin-top:8px">Foi · Défi · Unité 🧡</p></div>${backBtn()}`;
@@ -436,13 +434,13 @@ const A = {
   theme() { snd(440, .09); setTimeout(() => snd(660, .09), 80); document.body.classList.toggle("dark"); localStorage.setItem("cg_theme", document.body.classList.contains("dark") ? "dark" : "light"); },
   menu() { const o = $("#drawer").classList.toggle("open"); document.querySelector(".burger").classList.toggle("x", o); if (o) { snd(520, .08); openMenu(); } },
   toggleCodes(){const el=$("#codesList");if(el)el.hidden=!el.hidden;},
-  async copyCode(d){ toast((await copyText(d.code)) ? "Code copié. Vous pouvez le transmettre." : "Copie impossible : appuyez longuement sur le code pour le copier."); },
-  async copyNew(){ const el=$("#newc"); toast((await copyText(el.value)) ? "Code copié !" : "Copie impossible : sélectionnez le code puis copiez-le."); },
+  async copyCode(d){ toast((await copyText(d.code)) ? "Clé copiée. Vous pouvez la transmettre." : "Copie impossible : appuyez longuement sur le code pour le copier."); },
+  async copyNew(){ const el=$("#newc"); toast((await copyText(el.value)) ? "Clé copiée !" : "Copie impossible : sélectionnez le code puis copiez-le."); },
   lit() { regLit = true; $("#stg").classList.add("lit"); chime(); setTimeout(() => $("#regf").classList.add("on"), 1900); },
   async login() {
     const ph = normPhone($("#lp").value), m = S.members.find(x => normPhone(x.phone) === ph);
     if (!m || m.pin !== await hash($("#lpin").value, m.id)) { $("#err").textContent = "Téléphone ou mot de passe incorrect."; return; }
-    if (!m.active) { $("#err").textContent = "Votre compte est bloqué. Contactez la personne qui vous a invité."; return; }
+    if (!m.active) { $("#err").textContent = "Votre compte est bloqué. Contactez un responsable de votre village."; return; }
     S.cur = m.id; save(); hist = []; go("home"); chime(); voice();
   },
   logout() { S.cur = null; save(); hist = []; go("home"); },
@@ -474,7 +472,7 @@ const A = {
   newCode(d) {
     let c; do c = "GB-" + Array.from({ length: 6 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]).join(""); while (S.codes.some(x => x.code === c));
     S.codes.unshift({ code: c, role: d.r === "safouin" && isS() ? "safouin" : "cheminot", by: S.cur, used: null, createdAt: Date.now() }); save(); render(); chime();
-    $("#modal").innerHTML = `<div class="box"><h3>Code d'invitation créé</h3><p>Copiez ce code et envoyez-le à la personne invitée. Il ne sert qu'une seule fois.</p><input id="newc" readonly value="${c}" style="font-family:ui-monospace,monospace;font-size:1.4rem;text-align:center;letter-spacing:.12em;margin-top:8px"><button data-act="copyNew">📋 Copier le code</button><button class="sec" data-act="mNo">Fermer</button></div>`;
+    $("#modal").innerHTML = `<div class="box"><h3>Clé d’accès créée</h3><p>Copiez cette clé et transmettez-la à la personne concernée. Elle ne peut être utilisée qu’une seule fois.</p><input id="newc" readonly value="${c}" style="font-family:ui-monospace,monospace;font-size:1.4rem;text-align:center;letter-spacing:.12em;margin-top:8px"><button data-act="copyNew">📋 Copier la clé</button><button class="sec" data-act="mNo">Fermer</button></div>`;
     $("#modal").style.display = "flex"; setTimeout(() => { const i = $("#newc"); if (i) { i.focus(); i.select(); } }, 50);
   },
   newAnn() {
@@ -690,7 +688,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
           if (codesRes.error) throw codesRes.error;
           const plainRes = await sb.from("invite_code_plain").select("code_id,code_plain");
           const plainMap = new Map((plainRes.error ? [] : plainRes.data).map(x => [x.code_id,x.code_plain]));
-          S.codes = codesRes.data.map(c => ({id:c.id,code:"Code confidentiel (empreinte)",plain:plainMap.get(c.id) || "",role:c.assigned_role,by:c.created_by,used:c.used_by,createdAt:new Date(c.created_at).getTime(),expiresAt:c.expires_at}));
+          S.codes = codesRes.data.map(c => ({id:c.id,code:"Clé confidentielle (empreinte)",plain:plainMap.get(c.id) || "",role:c.assigned_role,by:c.created_by,used:c.used_by,createdAt:new Date(c.created_at).getTime(),expiresAt:c.expires_at}));
           const mRes = await sb.from("managed_members").select("*").order("full_name");
           if (!mRes.error) { S.managed = mRes.data.map(fromManaged); S.managedOk = true; } else console.warn("managed_members:", mRes.error.message);
         }
@@ -710,16 +708,15 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
   const authTabs = on => `<div class="tabs"><button class="${on === "auth" ? "" : "sec"}" data-act="go" data-t="auth">Connexion</button><button class="${on === "reg" ? "" : "sec"}" data-act="go" data-t="reg">Inscription</button></div>`;
   PARENT.regDone = "profile"; PARENT.forgot = "profile"; PARENT.resetPw = "profile";
 
-  V.auth = () => authTabs("auth") + `<h2>Connexion</h2>${authNotice ? `<div class="card" style="border-color:var(--ac)"><p style="color:var(--tx)"><strong>✅ ${authNotice}</strong></p></div>` : ""}<div class="card"><p>J'ai déjà un compte.</p><label>Identifiant (e-mail ou nom d’utilisateur)</label><input id="lp" type="text" autocomplete="username" placeholder="Votre identifiant" value="${esc(pendingEmail)}"><label>Mot de passe</label><input id="lpin" type="password" autocomplete="current-password"><div class="err" id="err"></div><div id="resendBox"></div><button data-act="login" style="margin:0">Se connecter</button><button class="link" data-act="go" data-t="forgot">Besoin de récupérer votre compte ?</button></div><div class="card"><p>Pas encore de compte ? Il te faut un code d'invitation remis par ton Safouin.</p><button class="sec" data-act="go" data-t="reg" style="margin:0">Je m'inscris</button></div>`;
+  V.auth = () => authTabs("auth") + `<h2>Connexion</h2>${authNotice ? `<div class="card" style="border-color:var(--ac)"><p style="color:var(--tx)"><strong>✅ ${authNotice}</strong></p></div>` : ""}<div class="card"><p>J'ai déjà un compte.</p><label>Identifiant (e-mail ou nom d’utilisateur)</label><input id="lp" type="text" autocomplete="username" placeholder="Votre identifiant" value="${esc(pendingEmail)}"><label>Mot de passe</label><input id="lpin" type="password" autocomplete="current-password"><div class="err" id="err"></div><div id="resendBox"></div><button data-act="login" style="margin:0">Se connecter</button><button class="link" data-act="go" data-t="forgot">Besoin de récupérer votre compte ?</button></div><div class="card"><p>Pas encore de compte ? Une clé d’accès valide est nécessaire pour créer votre compte.</p><button class="sec" data-act="go" data-t="reg" style="margin:0">Je m'inscris</button></div>`;
 
-  V.reg = () => authTabs("reg") + `<div class="${regLit ? "lit" : ""}" id="stg"><div class="stage"><div class="halo"></div><svg class="hat" viewBox="0 0 200 120"><ellipse cx="100" cy="88" rx="96" ry="22" fill="#7a5a30"/><path d="M52 84Q54 26 100 22Q146 26 148 84Z" fill="#a07c4a"/><path d="M52 74Q100 90 148 74L148 84Q100 100 52 84Z" fill="#3a2a14"/></svg><svg class="fl" data-act="lit" role="button" aria-label="Fleur de lys" viewBox="0 0 100 140">${FL}</svg></div><p class="hint">Touchez la fleur de lys pour commencer</p></div>
-    <div id="regf" class="${regLit ? "on" : ""}"><h2>Inscription</h2><div class="card"><p>Cette page sert à créer un <strong>nouveau compte</strong>. Tu en as déjà un ? <button class="link" data-act="go" data-t="auth">Va sur « Connexion »</button></p>
+  V.reg = () => authTabs("reg") + `<div id="regf" class="on"><h2>Créer un compte</h2><div class="card"><p>Renseignez vos informations et votre clé d’accès. Le système attribuera automatiquement les autorisations correspondant à cette clé. Vous avez déjà un compte ? <button class="link" data-act="go" data-t="auth">Connectez-vous ici</button></p>
     <label>Nom complet *</label><input id="r_name"><label>Identifiant de connexion *</label><input id="r_email" type="text" autocomplete="username" placeholder="E-mail ou nom d’utilisateur">
     <label>Sexe *</label><select id="r_gender"><option value="">— Choisir —</option><option value="M">Garçon</option><option value="F">Fille</option></select>
     <label>Date de naissance *</label><input id="r_birth" type="date" max="${today()}"><label>École *</label><input id="r_school"><label>Classe *</label><input id="r_classe">
     <label>Téléphone * (avec indicatif, ex. 225…)</label><input id="r_phone" type="tel"><label>Contact d'un parent *</label><input id="r_parent" type="tel"><label>Quartier *</label><input id="r_addr">
     <label>Paroisse / Groupe</label><input id="r_group" placeholder="Votre paroisse ou groupe scout"><label>Village *</label><select id="r_vil"><option value="">— Choisir votre village —</option>${S.villages.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join("")}</select>
-    <label>Mot de passe * (minimum ${PIN_LEN} caractères)</label><input id="r_pin" type="password" minlength="${PIN_LEN}" autocomplete="new-password"><label>Confirmer le mot de passe *</label><input id="r_pin2" type="password" minlength="${PIN_LEN}" autocomplete="new-password"><label>Code d'invitation remis par le Safouin *</label><input id="r_code" autocapitalize="characters">
+    <label>Mot de passe * (minimum ${PIN_LEN} caractères)</label><input id="r_pin" type="password" minlength="${PIN_LEN}" autocomplete="new-password"><label>Confirmer le mot de passe *</label><input id="r_pin2" type="password" minlength="${PIN_LEN}" autocomplete="new-password"><label>Clé d’accès *</label><input id="r_code" autocapitalize="characters" autocomplete="off" placeholder="Saisir votre clé d’accès">
     <div class="err" id="err"></div><button data-act="register" style="margin:0">Créer mon compte</button>${backBtn()}</div></div>`;
 
   V.regDone = () => `<div class="card" style="text-align:center"><div style="font-size:2.6rem">✅</div><h2>Compte créé !</h2><p>Votre compte est prêt. Vous pouvez maintenant vous connecter avec votre identifiant et votre mot de passe.</p><button data-act="go" data-t="auth">Me connecter</button></div>`;
@@ -734,7 +731,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     ${S.posts.length?[...S.posts].sort((a,b)=>b.ts-a.ts).map(p=>`<div class="card"><div class="row"><strong>${esc(p.author)}</strong><small>${new Date(p.ts).toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"})}</small></div><p style="color:var(--tx)">${esc(p.text).replace(/\n/g,"<br>")}</p>${u&&(staff()||p.by===u.id)?`<button class="dg" data-act="delPost" data-p="${p.id}">Supprimer</button>`:""}</div>`).join(""):`<div class="card"><p>Aucune publication. Soyez le premier !</p></div>`}`;
   };
   V.members = () => `<h2>Cheminots</h2><input placeholder="🔍 Rechercher…" oninput="filterMembers(this.value)"><div class="card" id="ml">${memberList("")}</div>${backBtn()}`;
-  V.resp = () => {const l=S.members.filter(m=>m.role==="safouin");return `<h2>Safouins (${l.length})</h2><div class="card">${l.map(m=>`<div class="item row" data-act="go" data-t="member" data-p="${m.id}"><span>${esc(displayName(m))} ${m.active?"":'<span class="badge">bloqué</span>'}</span>›</div>`).join("")||"<p>Aucun Safouin.</p>"}</div><button data-act="newCode" data-r="safouin">+ Générer un code Safouin</button>${backBtn()}`;};
+  V.resp = () => {const l=S.members.filter(m=>m.role==="safouin");return `<h2>Safouins (${l.length})</h2><div class="card">${l.map(m=>`<div class="item row" data-act="go" data-t="member" data-p="${m.id}"><span>${esc(displayName(m))} ${m.active?"":'<span class="badge">bloqué</span>'}</span>›</div>`).join("")||"<p>Aucun Safouin.</p>"}</div><button data-act="newCode" data-r="safouin">+ Générer une clé d’accès Safouin</button>${backBtn()}`;};
   V.member = () => {const m=S.members.find(x=>x.id===P);if(!m)return V.members();return `<div class="card"><h2>${esc(displayName(m))}</h2><p>🎂 ${m.birth?fmtDate(m.birth):"-"}</p><p>🏫 ${esc(m.school)} · ${esc(m.classe)}</p><p>📞 ${canSeePhone(m)?esc(m.phone):"Numéro masqué"}</p><p>👪 ${esc(m.parent)}</p><p>📍 ${esc(m.address)}</p>${genderLine(m)}<p>${rb(m)} ${unitBadge(m)} ${vb(m)} <span class="badge">${m.active?"actif":"bloqué"}</span></p>${m.by?`<p>Invité par : <strong>${esc(nm(m.by))}</strong></p>`:""}${staff()&&needsConfirm(m)?confirmBtns(m):""}<button data-act="editMember" data-p="${m.id}">Modifier les informations</button>${staff()&&m.role==="cheminot"&&!m.editAllowed?`<button class="sec" data-act="allowEdit" data-p="${m.id}">Autoriser la modification du profil</button>`:""}${canPromote(m)?`<button class="sec" data-act="promouvoirSafouin" data-p="${m.id}">⬆️ Promouvoir en Safouin</button>`:""}${canDemote(m)?`<button class="sec" data-act="retrograderSafouin" data-p="${m.id}">⬇️ Rétrograder en Cheminot</button>`:""}${canBlockMember(m)?`<button class="${m.active?"dg":"sec"}" data-act="toggleMember" data-p="${m.id}">${m.active?"Bloquer":"Débloquer"} le compte</button>`:""}${canDeleteMember(m)?`<button class="dg" data-act="supprimerMembre" data-p="${m.id}">❌ Supprimer définitivement</button>`:""}${backBtn()}</div>`;};
   V.villages = () => `<h2>Villages de la Tribu Gbê</h2><div class="card">${S.villages.map(v=>`<div class="item row" style="cursor:default"><span><i style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${v.color};margin-right:8px"></i>${esc(v.name)}</span><small>${S.members.filter(m=>m.vil===v.id&&m.active).length} membre(s)</small></div>`).join("")}</div>${isS()?`<div class="card"><label>Nom du village</label><input id="vn"><label>Couleur</label><input id="vc" type="color" value="#64748b"><button data-act="newVillage">Ajouter un village</button></div>`:""}${backBtn()}`;
   /* ===== Unités (Cheminot / Routier), jeunes sans compte, statistiques, codes ===== */
@@ -856,16 +853,16 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
       ${unknown ? `<p>❔ ${unknown} personne(s) sans sexe renseigné : complétez-le via « Modifier les informations ».</p>` : ""}${S.hasGender === false ? `<p style="color:var(--dg)">Colonne « sexe » absente : exécutez le script SQL fourni.</p>` : ""}${backBtn()}`;
   };
 
-  /* Codes d'invitation : masqués, affichés à la demande */
+  /* Clés d’accès : masquées, affichées à la demande */
   let codesOpen = false; const shown = new Set();
   V.codes = () => {
     const l = S.codes.filter(c => isS() || c.by === S.cur), free = l.filter(c => !c.used), used = l.filter(c => c.used);
     const sm = 'style="width:auto;margin:0;padding:7px 10px"';
-    return `<h2>Codes d'invitation</h2><div class="card"><p>Les codes sont cachés par défaut. Ouvrez la liste, puis touchez 👁 pour afficher un code, ou « Copier » pour le transmettre.</p>
-      <button class="sec" data-act="toggleCodes">🔐 Codes disponibles (${free.length}) ${codesOpen ? "▴" : "▾"}</button>
-      ${codesOpen ? `<div id="codesList">${free.map(c => `<div class="item" style="cursor:default"><div class="row"><span class="code">${c.plain ? (shown.has(c.id) ? esc(c.plain) : "GB-••••••••••") : "Code non récupérable"}</span>${c.plain ? `<span style="display:flex;gap:6px"><button class="sec" ${sm} data-act="revealCode" data-i="${c.id}">${shown.has(c.id) ? "🙈" : "👁"}</button><button ${sm} data-act="copyCode" data-i="${c.id}">Copier</button></span>` : ""}</div><p>${c.role === "safouin" ? "Safouin" : "Cheminot"} · créé le ${new Date(c.createdAt).toLocaleDateString("fr-FR")} · par ${esc(nm(c.by))}</p></div>`).join("") || "<p>Aucun code disponible.</p>"}
+    return `<h2>Clés d’accès</h2><div class="card"><p>Les clés sont masquées par défaut. Ouvrez la liste, puis touchez 👁 pour afficher une clé, ou « Copier » pour la transmettre à son destinataire.</p>
+      <button class="sec" data-act="toggleCodes">🔐 Clés disponibles (${free.length}) ${codesOpen ? "▴" : "▾"}</button>
+      ${codesOpen ? `<div id="codesList">${free.map(c => `<div class="item" style="cursor:default"><div class="row"><span class="code">${c.plain ? (shown.has(c.id) ? esc(c.plain) : "GB-••••••••••") : "Clé non récupérable"}</span>${c.plain ? `<span style="display:flex;gap:6px"><button class="sec" ${sm} data-act="revealCode" data-i="${c.id}">${shown.has(c.id) ? "🙈" : "👁"}</button><button ${sm} data-act="copyCode" data-i="${c.id}">Copier</button></span>` : ""}</div><p>${c.role === "safouin" ? "Safouin" : "Cheminot"} · créé le ${new Date(c.createdAt).toLocaleDateString("fr-FR")} · par ${esc(nm(c.by))}</p></div>`).join("") || "<p>Aucun code disponible.</p>"}
       ${used.length ? `<h3 style="margin-top:10px">Déjà utilisés (${used.length})</h3>${used.map(c => `<div class="item" style="cursor:default"><p>${c.role === "safouin" ? "Safouin" : "Cheminot"} · utilisé par ${esc(nm(c.used))} · créé le ${new Date(c.createdAt).toLocaleDateString("fr-FR")}</p></div>`).join("")}` : ""}</div>` : ""}
-      <button data-act="newCode" data-r="cheminot">+ Générer un code Membre</button>${isS() ? `<button class="sec" data-act="newCode" data-r="safouin">+ Générer un code Safouin</button>` : ""}</div>${backBtn()}`;
+      <button data-act="newCode" data-r="cheminot">+ Générer une clé d’accès membre</button>${isS() ? `<button class="sec" data-act="newCode" data-r="safouin">+ Générer une clé d’accès Safouin</button>` : ""}</div>${backBtn()}`;
   };
 
   /* Menu : raccourcis responsables */
@@ -912,8 +909,8 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     if(normPhone(d.phone).length<8)return err("Numéro de téléphone invalide.");
     if(age(d.birth)<5||age(d.birth)>99)return err("Date de naissance invalide.");
     if(!S.villages.some(v=>v.id===village))return err("Village invalide.");
-    const {data,error}=await sb.auth.signUp({email:d.email,password:toPw(d.password),options:{emailRedirectTo:SITE_URL,data:{full_name:d.name,gender:d.gender,birth_date:d.birth,school:d.school,class_name:d.classe,phone:d.phone,parent_phone:d.parent,address:d.address,parish_group:d.group,village_id:village,invite_code:d.code}}});
-    if(error){err(/already registered/i.test(error.message)?"Cette adresse e-mail a déjà un compte. Allez dans « Connexion » (ou « Mot de passe oublié »).":error.message);return;}
+    const {data,error}=await sb.auth.signUp({email:d.email,password:toPw(d.password),options:{emailRedirectTo:SITE_URL,data:{full_name:d.name,gender:d.gender,birth_date:d.birth,school:d.school,class_name:d.classe,phone:d.phone,parent_phone:d.parent,address:d.address,parish_group:d.group,village_id:village,invite_code:d.code,access_key:d.code}}});
+    if(error){err(/already registered/i.test(error.message)?"Cette adresse e-mail a déjà un compte. Allez dans « Connexion » (ou « Mot de passe oublié »).":error.message.replace(/Code d’invitation/gi,"Clé d’accès").replace(/code d’invitation/gi,"clé d’accès"));return;}
     pendingEmail=d.email;
     if(data.user&&Array.isArray(data.user.identities)&&data.user.identities.length===0)return err("Cette adresse e-mail a déjà un compte. Allez dans « Connexion » (ou « Mot de passe oublié »).");
     if(data.session){ await sb.auth.signOut(); S.cur=null; S.members=[]; S.posts=[]; S.codes=[]; S.managed=[]; }
@@ -936,7 +933,7 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     $("#modal").innerHTML=`<div class="box"><h3>Code de récupération créé</h3><p>Remettez ce code directement au membre après vérification de son identité. Il expire dans 30 minutes et ne s’affiche plus ensuite.</p><input id="recoveryCodeCopy" readonly value="${esc(code)}" style="font-family:ui-monospace,monospace;font-size:1.15rem;text-align:center;letter-spacing:.08em"><button data-act="copyRecoveryCode">Copier le code</button><button class="sec" data-act="mNo">Fermer</button></div>`;$("#modal").style.display="flex";await A.loadRecoveryRequests();
   };
   A.rejectRecovery = async d => {if(!staff())return;if(!confirm("Refuser cette demande de récupération ?"))return;const r=await api("/auth/recovery/reject","POST",{requestId:d.p});if(r.error)return toast(r.error.message);await A.loadRecoveryRequests();};
-  A.copyRecoveryCode = async () => {const v=$("#recoveryCodeCopy")?.value||"";if(await copyText(v))toast("Code copié. Remettez-le au membre de manière confidentielle.");else toast("Copie impossible.");};
+  A.copyRecoveryCode = async () => {const v=$("#recoveryCodeCopy")?.value||"";if(await copyText(v))toast("Clé copiée. Remettez-le au membre de manière confidentielle.");else toast("Copie impossible.");};
   A.savePw = async () => {
     const code=$("#recoveryCode")?.value.trim().toUpperCase()||"",p1=$("#np1").value,p2=$("#np2").value,err=t=>$("#err").textContent=t;
     if(!code)return err("Saisissez le code temporaire remis par le responsable.");if(p1.length<8)return err("Le mot de passe doit contenir au moins 8 caractères.");if(p1!==p2)return err("Les deux mots de passe ne correspondent pas.");
@@ -953,11 +950,11 @@ sp.addEventListener("click", endSplash); setTimeout(endSplash, 1900);
     let kept=false;
     if(ins?.id){ const r=await sb.from("invite_code_plain").insert({code_id:ins.id,code_plain:code}); kept=!r.error; }
     await refreshAndRender();
-    $("#modal").innerHTML=`<div class="box"><h3>Code d'invitation créé</h3><p>${kept?"Copiez-le et transmettez-le à la personne invitée. Vous pourrez le retrouver, masqué, dans la rubrique Codes.":"Copiez-le maintenant et transmettez-le à la personne invitée. Il ne sera plus affiché après fermeture."}</p><input id="newc" readonly value="${code}" style="font-family:ui-monospace,monospace;font-size:1.4rem;text-align:center;letter-spacing:.12em;margin-top:8px"><button data-act="copyNew">📋 Copier le code</button><button class="sec" data-act="mNo">Fermer</button></div>`;$("#modal").style.display="flex";
+    $("#modal").innerHTML=`<div class="box"><h3>Clé d’accès créée</h3><p>${kept?"Copiez cette clé et transmettez-la à son destinataire. Vous pourrez la retrouver, masquée, dans la rubrique « Clés d’accès ».":"Copiez cette clé maintenant et transmettez-la à son destinataire. Elle ne sera plus affichée après fermeture."}</p><input id="newc" readonly value="${code}" style="font-family:ui-monospace,monospace;font-size:1.4rem;text-align:center;letter-spacing:.12em;margin-top:8px"><button data-act="copyNew">📋 Copier la clé</button><button class="sec" data-act="mNo">Fermer</button></div>`;$("#modal").style.display="flex";
   };
   A.toggleCodes = () => { codesOpen=!codesOpen; if(!codesOpen)shown.clear(); render(); };
   A.revealCode = d => { shown.has(d.i)?shown.delete(d.i):shown.add(d.i); render(); };
-  A.copyCode = async d => { const c=S.codes.find(x=>x.id===d.i); if(!c?.plain)return toast("Ce code n'est plus récupérable."); toast((await copyText(c.plain))?"Code copié. Vous pouvez le transmettre.":"Copie impossible : affichez le code puis copiez-le à la main."); };
+  A.copyCode = async d => { const c=S.codes.find(x=>x.id===d.i); if(!c?.plain)return toast("Cette clé n'est plus récupérable."); toast((await copyText(c.plain))?"Clé copiée. Vous pouvez la transmettre.":"Copie impossible : affichez le code puis copiez-le à la main."); };
   A.addManaged = () => managedForm(null);
   A.editManaged = d => managedForm((S.managed||[]).find(m=>m.id===d.p));
   A.delManaged = async d => {
